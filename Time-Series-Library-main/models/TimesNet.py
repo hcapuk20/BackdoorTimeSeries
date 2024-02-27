@@ -5,25 +5,39 @@ import torch.fft
 from layers.Embed import DataEmbedding
 from layers.Conv_Blocks import Inception_Block_V1
 
-
+"""
+FFT Transformation function
+"""
 def FFT_for_Period(x, k=2):
-    # [B, T, C]
+    # xf shape [B, T, C], denoting the amplitude of frequency(T) given the datapiece at B,N
     xf = torch.fft.rfft(x, dim=1)
+
     # find period by amplitudes
     frequency_list = abs(xf).mean(0).mean(-1)
     frequency_list[0] = 0
     _, top_list = torch.topk(frequency_list, k)
+
+    # Returns a new Tensor 'top_list', detached from the current graph.
+    # The result will never require gradient.Convert to a numpy instance
     top_list = top_list.detach().cpu().numpy()
+    # period:a list of shape [top_k], recording the periods of mean frequencies respectively
     period = x.shape[1] // top_list
+
+    # Here,the 2nd item returned has a shape of [B, top_k],representing the biggest top_k amplitudes 
+    # for each piece of data, with N features being averaged.
     return period, abs(xf).mean(-1)[:, top_list]
 
-
+"""
+TimesBlock
+Gets base frequencies of the data by applying FFT transformation,
+and then reshapes the data to 2D respecting these frequences.
+"""
 class TimesBlock(nn.Module):
     def __init__(self, configs):
         super(TimesBlock, self).__init__()
         self.seq_len = configs.seq_len
         self.pred_len = configs.pred_len
-        self.k = configs.top_k
+        self.k = configs.top_k # determines how many top frequencies will be considered
         # parameter-efficient design
         self.conv = nn.Sequential(
             Inception_Block_V1(configs.d_model, configs.d_ff,
@@ -35,12 +49,17 @@ class TimesBlock(nn.Module):
 
     def forward(self, x):
         B, T, N = x.size()
+
+        # period_list([topk]) -> topk significant frequency
+        # period_weight([B, topk]) -> their amplitudes 
         period_list, period_weight = FFT_for_Period(x, self.k)
 
         res = []
         for i in range(self.k):
             period = period_list[i]
             # padding
+            # total length of the sequence + length of the part that will be predicted
+            # needs to be divisible by the period, so it adds padding to handle this.
             if (self.seq_len + self.pred_len) % period != 0:
                 length = (
                                  ((self.seq_len + self.pred_len) // period) + 1) * period
@@ -50,18 +69,25 @@ class TimesBlock(nn.Module):
                 length = (self.seq_len + self.pred_len)
                 out = x
             # reshape
+            # we need each channel of a single piece of data to be a 2D variable,
+            # Also, in order to implement the 2D conv later on, we need to adjust the 2 dimensions 
+            # to be convolutioned to the last 2 dimensions, by calling the permute() func.
             out = out.reshape(B, length // period, period,
                               N).permute(0, 3, 1, 2).contiguous()
             # 2D conv: from 1d Variation to 2d Variation
             out = self.conv(out)
             # reshape back
             out = out.permute(0, 2, 3, 1).reshape(B, -1, N)
+            # truncating down the padded part of the output and put it to result
             res.append(out[:, :(self.seq_len + self.pred_len), :])
         res = torch.stack(res, dim=-1)
         # adaptive aggregation
+        # First, use softmax to get the normalized weight from amplitudes --> 2D [B,top_k]
         period_weight = F.softmax(period_weight, dim=1)
+        # after two unsqueeze(1),shape -> [B,1,1,top_k],so repeat the weight to fit the shape of res
         period_weight = period_weight.unsqueeze(
             1).unsqueeze(1).repeat(1, T, N, 1)
+        # add by weight the top_k periods' result, getting the result of this TimesBlock
         res = torch.sum(res * period_weight, -1)
         # residual connection
         res = res + x
@@ -80,12 +106,20 @@ class Model(nn.Module):
         self.seq_len = configs.seq_len
         self.label_len = configs.label_len
         self.pred_len = configs.pred_len
+
+        # stack TimesBlock for e_layers times to form the main part of TimesNet, named model
         self.model = nn.ModuleList([TimesBlock(configs)
                                     for _ in range(configs.e_layers)])
+        
+        # embedding and normalization part
+        # enc_in is the encoder input size, the number of features for a piece of data
+        # d_model is the dimension of embedding
         self.enc_embedding = DataEmbedding(configs.enc_in, configs.d_model, configs.embed, configs.freq,
                                            configs.dropout)
         self.layer = configs.e_layers
         self.layer_norm = nn.LayerNorm(configs.d_model)
+
+        # create layers that will handle different tasks
         if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
             self.predict_linear = nn.Linear(
                 self.seq_len, self.pred_len + self.seq_len)
