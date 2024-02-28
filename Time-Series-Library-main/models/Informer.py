@@ -25,6 +25,9 @@ class Model(nn.Module):
                                            configs.dropout)
 
         # Encoder
+        # The encoder has redundant combinations of V. They use the distilling operation to privilege
+        # the superior ones and make a focused self-attention feature map in the next layer.
+        # Distilling operation: X^t(j+1) = MaxPool(ELU(Conv1D(X^t(j)[AB]))) where (.)[AB] represents the attention block.
         self.encoder = Encoder(
             [
                 EncoderLayer(
@@ -46,6 +49,11 @@ class Model(nn.Module):
             norm_layer=torch.nn.LayerNorm(configs.d_model)
         )
         # Decoder
+        # consists of two identical multi-head attention layers
+        # Masked multi-head is applied that sets masked dot products to -inf, which prevents positions
+        # to attend upcoming positions, thus making it autoregressive.
+        # a fully connected layer acquires the final output, and its output size depends on whether 
+        # we are performing univariate or multivariate forecasting. 
         self.decoder = Decoder(
             [
                 DecoderLayer(
