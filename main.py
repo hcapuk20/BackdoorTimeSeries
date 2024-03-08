@@ -3,8 +3,7 @@ import numpy as np
 import torch.nn as nn
 from data_provider.data_factory import data_provider
 from models import * # Here we import the architecture
-from parameters import *
-from parameters.parameters import *
+from parameters import * # Here we import the parameters
 from models.Informer import Model as Informer
 from models.TimesNet import Model as TimesNet
 from models.FEDformer import Model as FEDformer
