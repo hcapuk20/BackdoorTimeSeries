@@ -34,7 +34,7 @@ def get_model(args, train_data, test_data):
     args.enc_in = train_data.feature_df.shape[1]
     args.num_class = len(train_data.class_names)
     # model init
-    model = model_dict[args.model].Model(args).float()
+    model = model_dict[args.model](args).float()
     if args.use_multi_gpu and args.use_gpu:
         model = nn.DataParallel(model, device_ids=args.device_ids)
     return model
@@ -100,6 +100,6 @@ if __name__ == '__main__':
             model.load_state_dict(checkpoint)
             print("================================ Successfully load the pretrained data!")
 
-        train_model(model, trainloader, args)
+        train_model(model, train_loader, args)
     else:
         test_model(model, test_loader, args)
