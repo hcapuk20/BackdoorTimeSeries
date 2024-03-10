@@ -31,6 +31,7 @@ def get_model(args, train_data, test_data):
     args.seq_len = max(train_data.max_seq_len, test_data.max_seq_len)
     args.pred_len = 0
     args.enc_in = train_data.feature_df.shape[1]
+    print('enc_in',args.enc_in,'seq_len',args.seq_len)
     args.num_class = len(train_data.class_names)
     # model init
     model = model_dict[args.model](args).float()
@@ -38,30 +39,47 @@ def get_model(args, train_data, test_data):
         model = nn.DataParallel(model, device_ids=args.device_ids)
     return model
 
+def get_bd_model(args, train_data, test_data):
+    seq_len = max(train_data.max_seq_len, test_data.max_seq_len)
+    bd_model = nn.Transformer(nhead=8, num_encoder_layers=2,d_model=args.seq_len)
+    return bd_model
 
+def cal_accuracy(y_pred, y_true):
+    return np.mean(y_pred == y_true)
 
 ############ Training the model
-def train_model(model, train_loader, args):
-    print("-->-->-->-->-->-->-->-->-->--> start training ...")
-    model.train()
+def epoch(model, loader, args,optimiser=None):
+    #
     epoch_loss_record = []
-    train_loss = []
-    for i, (batch_x, label, padding_mask) in enumerate(train_loader):
-            args.optimizer.zero_grad()
+    total_loss = []
+    preds = []
+    trues = []
+    for i, (batch_x, label, padding_mask) in enumerate(loader):
+            model.zero_grad()
             batch_x = batch_x.float().to(args.device)
             padding_mask = padding_mask.float().to(args.device)
             label = label.to(args.device)
             ######## Outputs
             outputs = model(batch_x, padding_mask, None, None)
             loss = args.criterion(outputs, label.long().squeeze(-1))
-            train_loss.append(loss.item())
-            loss.backward()
-            nn.utils.clip_grad_norm_(model.parameters(), max_norm=4.0)
-            args.optimizer.step()
+            total_loss.append(loss.item())
+            preds.append(outputs.detach())
+            trues.append(label)
+            if optimiser is not None:
+                loss.backward()
+                nn.utils.clip_grad_norm_(model.parameters(), max_norm=4.0)
+                optimiser.step()
+    total_loss = np.average(total_loss)
+    preds = torch.cat(preds, 0)
+    trues = torch.cat(trues, 0)
+    probs = torch.nn.functional.softmax(
+        preds)  # (total_samples, num_classes) est. prob. for each class and sample
+    predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    trues = trues.flatten().cpu().numpy()
+    accuracy = cal_accuracy(predictions, trues)
+    return total_loss, accuracy
 
 
-def test_model(model, test_loader, args):
-    return
 
 
 
@@ -82,23 +100,21 @@ if __name__ == '__main__':
     # ===== Add loss criterion to the args =====
     args.criterion = nn.CrossEntropyLoss()
     # ===== Add optimizer to the args =====
-    if args.train == 1:
+    if args.is_training == 1:
         if args.opt_method == 'adamW':
-            args.optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=args.wd, amsgrad=False)
+            optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=args.wd, amsgrad=False)
         else:
-            args.optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-9)
-        if args.use_lr_schedule:
-            lambda1 = lambda epoch: (1-epoch/args.total_iter)
-            args.scheduler = torch.optim.lr_scheduler.LambdaLR(args.optimizer, lr_lambda=lambda1)
+            optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-9)
+        #if args.use_lr_scheduler:
+            #lambda1 = lambda epoch: (1-epoch/args.total_iter)
+            #args.scheduler = torch.optim.lr_scheduler.LambdaLR(args.optimizer, lr_lambda=lambda1)
             ######################## huggingface library ####################################################
             #args.scheduler = get_polynomial_decay_schedule_with_warmup(optimizer=args.optimizer, warmup_steps=1000, num_training_steps=args.total_iter, power=0.5)
-
-
-        if 0:
-            checkpoint = torch.load(args.saveDir)
-            model.load_state_dict(checkpoint)
-            print("================================ Successfully load the pretrained data!")
-
-        train_model(model, train_loader, args)
+        for i in range(args.train_epochs):
+            model.train()
+            train_loss, train_acc = epoch(model, train_loader, args,optimizer)
+            model.eval()
+            test_loss, test_acc = epoch(model,test_loader, args)
+            print(train_loss,test_loss,train_acc,test_acc)
     else:
-        test_model(model, test_loader, args)
+        epoch(model, test_loader, args)

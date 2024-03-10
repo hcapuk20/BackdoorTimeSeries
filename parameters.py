@@ -14,17 +14,17 @@ def args_parser():
     parser.add_argument('--task_name', type=str, default='classification', help='Task to be performed.')
     
     ############ Training Parameters
-    #parser.add_argument('--train_epochs', type=int, default= 1000)
-    parser.add_argument('--batchSize', type=int, default=16384, help="batch size")
+    parser.add_argument('--train_epochs', type=int, default= 100)
+    parser.add_argument('--batchSize', type=int, default=32, help="batch size")
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
     parser.add_argument('--wd', type=float, default=0.01, help="weight decay")
     parser.add_argument('--device', type=str, default='cuda:0', help="GPU")
 
     # data loader
-    parser.add_argument('--data', type=str, required=False, default='ETTm1', help='dataset type')
-    parser.add_argument('--root_path', type=str, default='./data/EthanolConcentration/', help='root path of the data file')
-    parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
+    parser.add_argument('--data', type=str, required=False, default='UEA', help='dataset type')
+    parser.add_argument('--root_path', type=str, default='./dataset/EthanolConcentration/', help='root path of the data file')
+    parser.add_argument('--data_path', type=str, default='ETTm1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
     parser.add_argument('--target', type=str, default='OT', help='target feature in S or MS task')
@@ -71,7 +71,6 @@ def args_parser():
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
-    parser.add_argument('--train_epochs', type=int, default=10, help='train epochs')
     parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='optimizer learning rate')
