@@ -7,6 +7,7 @@ def args_parser():
     # Sequence arguments
     #parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
     parser.add_argument('--model', type=str, default='TimesNet', help='NN model')
+    parser.add_argument('--bd_model', type=str, default='patchtst', help='patchtst or iverted')
     
     # Training or testing
     parser.add_argument('--is_training', type=int, default=1, help='Running mode')
@@ -14,8 +15,8 @@ def args_parser():
     parser.add_argument('--task_name', type=str, default='classification', help='Task to be performed.')
     
     ############ Training Parameters
-    parser.add_argument('--train_epochs', type=int, default= 100)
-    parser.add_argument('--batchSize', type=int, default=32, help="batch size")
+    parser.add_argument('--train_epochs', type=int, default= 1)
+    parser.add_argument('--batchSize', type=int, default=10, help="batch size")
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
     parser.add_argument('--wd', type=float, default=0.01, help="weight decay")
@@ -23,7 +24,7 @@ def args_parser():
 
     # data loader
     parser.add_argument('--data', type=str, required=False, default='UEA', help='dataset type')
-    parser.add_argument('--root_path', type=str, default='./dataset/EthanolConcentration/', help='root path of the data file')
+    parser.add_argument('--root_path', type=str, default='./dataset/SpokenArabicDigits/', help='root path of the data file')
     parser.add_argument('--data_path', type=str, default='ETTm1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
@@ -53,7 +54,7 @@ def args_parser():
     parser.add_argument('--c_out', type=int, default=7, help='output size')
     parser.add_argument('--d_model', type=int, default=32, help='dimension of model')
     parser.add_argument('--n_heads', type=int, default=8, help='num of heads')
-    parser.add_argument('--e_layers', type=int, default=3, help='num of encoder layers')
+    parser.add_argument('--e_layers', type=int, default=2, help='num of encoder layers')
     parser.add_argument('--d_layers', type=int, default=1, help='num of decoder layers')
     parser.add_argument('--d_ff', type=int, default=32, help='dimension of fcn')
     parser.add_argument('--moving_avg', type=int, default=25, help='window size of moving average')
@@ -71,11 +72,11 @@ def args_parser():
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
-    parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
+    parser.add_argument('--batch_size', type=int, default=2, help='batch size of train input data')
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='optimizer learning rate')
     parser.add_argument('--des', type=str, default='exp', help='exp description')
-    parser.add_argument('--loss', type=str, default='MSE', help='loss function')
+    parser.add_argument('--loss', type=str, default='CE', help='loss function')
     parser.add_argument('--lradj', type=str, default='type1', help='adjust learning rate')
     parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
 

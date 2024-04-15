@@ -597,7 +597,7 @@ class SWATSegLoader(Dataset):
                 self.test_labels[index // self.step * self.win_size:index // self.step * self.win_size + self.win_size])
 
 
-class UEAloader(Dataset):
+class UEAloader(Dataset): ## classification datasets employ this loader
     """
     Dataset class for dataset included in:
         Time Series Classification Archive (www.timeseriesclassification.com)
@@ -634,7 +634,6 @@ class UEAloader(Dataset):
         # pre_process
         normalizer = Normalizer()
         self.feature_df = normalizer.normalize(self.feature_df)
-        print(len(self.all_IDs))
 
     def load_all(self, root_path, file_list=None, flag=None):
         """
@@ -653,13 +652,10 @@ class UEAloader(Dataset):
         else:
             data_paths = [os.path.join(root_path, p) for p in file_list]
         if len(data_paths) == 0:
-            #print(list(os.listdir(root_path)))
             raise Exception('No files found using: {}'.format(os.path.join(root_path, '*')))
-        if flag is not None:
+        if flag is not None: ## seperate train and test files
             flag = flag.upper()
             data_paths = list(filter(lambda x: re.search(flag, x), data_paths))
-        print(data_paths)
-        #print(data_paths[0].endswith('.ts'),data_paths[1].endswith('.ts'))
         input_paths = [p for p in data_paths if os.path.isfile(p) and p.endswith('.ts')]
         if len(input_paths) == 0:
             pattern='*.ts'
@@ -702,7 +698,7 @@ class UEAloader(Dataset):
         # Replace NaN values
         grp = df.groupby(by=df.index)
         df = grp.transform(interpolate_missing)
-
+        #df.to_csv('out.csv', index=False)
         return df, labels_df
 
     def instance_norm(self, case):

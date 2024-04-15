@@ -11,10 +11,12 @@ FFT Transformation function
 def FFT_for_Period(x, k=2):
     # xf shape [B, T, C], denoting the amplitude of frequency(T) given the datapiece at B,N
     xf = torch.fft.rfft(x, dim=1)
+    #print(x.shape, xf.shape)
 
     # find period by amplitudes
     frequency_list = abs(xf).mean(0).mean(-1)
     frequency_list[0] = 0
+    #print(frequency_list)
     _, top_list = torch.topk(frequency_list, k)
 
     # Returns a new Tensor 'top_list', detached from the current graph.
@@ -22,7 +24,7 @@ def FFT_for_Period(x, k=2):
     top_list = top_list.detach().cpu().numpy()
     # period:a list of shape [top_k], recording the periods of mean frequencies respectively
     period = x.shape[1] // top_list
-
+    #print(period)
     # Here,the 2nd item returned has a shape of [B, top_k],representing the biggest top_k amplitudes 
     # for each piece of data, with N features being averaged.
     return period, abs(xf).mean(-1)[:, top_list]
@@ -48,19 +50,20 @@ class TimesBlock(nn.Module):
         )
 
     def forward(self, x):
-        B, T, N = x.size()
+        B, T, N = x.size() # B: batch size, T: sequence length, N: feature number
 
         # period_list([topk]) -> topk significant frequency
         # period_weight([B, topk]) -> their amplitudes 
         period_list, period_weight = FFT_for_Period(x, self.k)
 
+
         res = []
-        for i in range(self.k):
-            period = period_list[i]
+        for i in range(self.k): # for each top_k frequency
+            period = period_list[i] # get the period
             # padding
             # total length of the sequence + length of the part that will be predicted
             # needs to be divisible by the period, so it adds padding to handle this.
-            if (self.seq_len + self.pred_len) % period != 0:
+            if (self.seq_len + self.pred_len) % period != 0: # if not divisible
                 length = (
                                  ((self.seq_len + self.pred_len) // period) + 1) * period
                 padding = torch.zeros([x.shape[0], (length - (self.seq_len + self.pred_len)), x.shape[2]]).to(x.device)
@@ -73,11 +76,13 @@ class TimesBlock(nn.Module):
             # Also, in order to implement the 2D conv later on, we need to adjust the 2 dimensions 
             # to be convolutioned to the last 2 dimensions, by calling the permute() func.
             out = out.reshape(B, length // period, period,
-                              N).permute(0, 3, 1, 2).contiguous()
+                              N).permute(0, 3, 1, 2).contiguous() # [B, N, period_index, T_within_period]
+            #print(out.shape,'outt')
             # 2D conv: from 1d Variation to 2d Variation
             out = self.conv(out)
+            #print(out.shape, 'outttt')
             # reshape back
-            out = out.permute(0, 2, 3, 1).reshape(B, -1, N)
+            out = out.permute(0, 2, 3, 1).reshape(B, -1, N) # [B, T, N]
             # truncating down the padded part of the output and put it to result
             res.append(out[:, :(self.seq_len + self.pred_len), :])
         res = torch.stack(res, dim=-1)
@@ -223,6 +228,7 @@ class Model(nn.Module):
 
         # Output
         # the output transformer encoder/decoder embeddings don't include non-linearity
+        #print(enc_out.shape,'out')
         output = self.act(enc_out)
         output = self.dropout(output)
         # zero-out padding embeddings
