@@ -7,16 +7,21 @@ def args_parser():
     # Sequence arguments
     #parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
     parser.add_argument('--model', type=str, default='TimesNet', help='NN model')
-    parser.add_argument('--bd_model', type=str, default='patchtst', help='patchtst or iverted')
+    parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
+    parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
+    parser.add_argument('--poisoning_ratio', type=float, default=0.1, help='Poisoning ratio')
+    parser.add_argument('--training_poisoning_ratio', type=float, default=1, help='1 uses whole batch for poisoning, Not implemented yet')
     
     # Training or testing
     parser.add_argument('--is_training', type=int, default=1, help='Running mode')
+    parser.add_argument('--warm_up', type=bool, default=True, help='warm up the surrogate model')
+    parser.add_argument('--freeze_surrogate', type=bool, default=False, help='surrogate after warm up')
     # task name added for easy use with data provider
     parser.add_argument('--task_name', type=str, default='classification', help='Task to be performed.')
     
     ############ Training Parameters
-    parser.add_argument('--train_epochs', type=int, default= 1)
-    parser.add_argument('--batchSize', type=int, default=10, help="batch size")
+    parser.add_argument('--train_epochs', type=int, default= 50)
+    parser.add_argument('--batchSize', type=int, default=32, help="batch size")
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
     parser.add_argument('--wd', type=float, default=0.01, help="weight decay")
@@ -24,7 +29,7 @@ def args_parser():
 
     # data loader
     parser.add_argument('--data', type=str, required=False, default='UEA', help='dataset type')
-    parser.add_argument('--root_path', type=str, default='./dataset/SpokenArabicDigits/', help='root path of the data file')
+    parser.add_argument('--root_path', type=str, default='./dataset/JapaneseVowels/', help='root path of the data file')
     parser.add_argument('--data_path', type=str, default='ETTm1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')

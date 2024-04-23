@@ -67,7 +67,7 @@ class Model(nn.Module):
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
         dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
         dec_out = dec_out[:, -self.pred_len:, :]
-        dec_out = self.th_clipping(x_enc, dec_out)
+        #dec_out = self.th_clipping2(x_enc, dec_out)
         return dec_out  # [B, L, D]
 
     def th_clipping(self,x_enc, x_gen):
@@ -76,3 +76,10 @@ class Model(nn.Module):
             x_gen_clipped = torch.where(x_gen < low, low,
                                    torch.where(x_gen > high, high, x_gen))
             return x_gen_clipped
+
+    def th_clipping2(self,x_enc, x_gen):
+            lim = x_enc.abs() * .1
+            x_gen_clipped = torch.where(x_gen < -lim, -lim,
+                                   torch.where(x_gen > lim, lim, x_gen))
+            return x_gen_clipped
+
