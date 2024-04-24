@@ -10,14 +10,14 @@ def clipping(x_enc, trigger, ratio=0.1):
                                 torch.where(trigger > lim, lim, trigger))
     return x_gen_clipped
 
-def epoch(bd_model, loader, args,optimiser=None):
+def epoch(bd_model, loader, args,optimiser=None): # for training and testing the backdoor generator
     #
     epoch_loss_record = []
     total_loss = []
     preds = []
     bd_preds = []
     trues = []
-    bd_label = 0
+    bd_label = args.target_label
     loss_dict = {'CE':[],'L2':[]}
     for i, (batch_x, label, padding_mask) in enumerate(loader):
             bd_model.zero_grad()
@@ -56,13 +56,13 @@ def epoch(bd_model, loader, args,optimiser=None):
 
     return total_loss,loss_dict, accuracy,bd_accuracy
 
-def epoch_clean_train(bd_model,clean_model, loader,loader_bd, args,optimiser):
+def epoch_clean_train(bd_model,clean_model, loader,loader_bd, args,optimiser): #for training clean model with fraction of backdoored data
     total_loss = []
     preds = []
     bd_preds = []
     trues = []
     backdoors = []
-    bd_label = 0
+    bd_label = args.target_label
     nb = iter(loader_bd)
     for i, (batch_x, label, padding_mask) in enumerate(loader):
             try:
@@ -109,11 +109,11 @@ def epoch_clean_train(bd_model,clean_model, loader,loader_bd, args,optimiser):
     bd_accuracy = cal_accuracy(bd_predictions, backdoors.flatten().cpu().numpy())
     return total_loss, accuracy, bd_accuracy
 
-def epoch_clean_test(bd_model,clean_model, loader,args):
+def epoch_clean_test(bd_model,clean_model, loader,args): ## for testing the backdoored clean model
     preds = []
     bd_preds = []
     trues = []
-    bd_label = 0
+    bd_label = args.target_label
     for i, (batch_x, label, padding_mask) in enumerate(loader):
         clean_model.zero_grad()
         batch_x = batch_x.float().to(args.device)
@@ -140,7 +140,7 @@ def epoch_clean_test(bd_model,clean_model, loader,args):
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     return clean_accuracy,bd_accuracy
 
-def clean_train(model,loader,args,optimizer):
+def clean_train(model,loader,args,optimizer): ### for warm up the surrogate classifier
     model.train()
     total_loss = []
     preds = []

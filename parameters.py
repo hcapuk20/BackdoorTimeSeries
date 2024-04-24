@@ -4,14 +4,14 @@ import torch
 def args_parser():
     parser = argparse.ArgumentParser()
 
-    # Sequence arguments
     #parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
     parser.add_argument('--model', type=str, default='TimesNet', help='NN model')
     parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
-    parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
+    parser.add_argument('--bd_model', type=str, default='inverted', help='trigger generator model. patchtst or inverted')
     parser.add_argument('--poisoning_ratio', type=float, default=0.1, help='Poisoning ratio')
-    parser.add_argument('--training_poisoning_ratio', type=float, default=1, help='1 uses whole batch for poisoning, Not implemented yet')
-    
+    parser.add_argument('--target_label', type=int, default=0, help='Poisoning ratio')
+
+
     # Training or testing
     parser.add_argument('--is_training', type=int, default=1, help='Running mode')
     parser.add_argument('--warm_up', type=bool, default=True, help='warm up the surrogate model')
