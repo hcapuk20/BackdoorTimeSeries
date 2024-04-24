@@ -135,10 +135,11 @@ if __name__ == '__main__':
 
         bd_model.load_state_dict(best_dict)
         bd_model.eval()
-        train_dataset, bd_dataset = torch.utils.data.random_split(train_data, [0.9, 0.1])
-        bs = (args.batchSize * 9) // 10
+        clean_ratio = 1 - args.poisoning_ratio
+        train_dataset, bd_dataset = torch.utils.data.random_split(train_data, [clean_ratio, args.poisoning_ratio])
+        bs = int(args.batchSize * clean_ratio) + 1
         train_loader = custom_data_loader(train_dataset, args,flag='train',force_bs=bs)
-        bd_bs = (args.batchSize // 10) + 1
+        bd_bs = int(args.batchSize * args.poisoning_ratio) + 1
         bd_loader = custom_data_loader(bd_dataset, args,flag='train',force_bs=bd_bs)
         clean_model = get_clean_model(args,train_data,test_data)
         optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-9)
