@@ -15,6 +15,7 @@ from models.Bd_patch import Model as Bd_patch
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from epoch import *
+from utils.save_results import save_results
 
 model_dict = {
     'TimesNet': TimesNet,
@@ -143,9 +144,10 @@ if __name__ == '__main__':
         bd_loader = custom_data_loader(bd_dataset, args,flag='train',force_bs=bd_bs)
         clean_model = get_clean_model(args,train_data,test_data)
         optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-9)
-        for i in tqdm(range(args.train_epochs)):
+        for i in tqdm(range(30)):
             clean_model.train()
             train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_model,clean_model, train_loader,bd_loader, args,optimizer)
             clean_model.eval()
             clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_model,clean_model, test_loader,args)
             print('CA:',clean_test_acc,'ASR:',bd_accuracy_test)
+        save_results(args,clean_test_acc,bd_accuracy_test)

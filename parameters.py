@@ -5,9 +5,9 @@ def args_parser():
     parser = argparse.ArgumentParser()
 
     #parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
-    parser.add_argument('--model', type=str, default='TimesNet', help='NN model')
+    parser.add_argument('--model', type=str, default='Informer', help='NN model')
     parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
-    parser.add_argument('--bd_model', type=str, default='inverted', help='trigger generator model. patchtst or inverted')
+    parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
     parser.add_argument('--poisoning_ratio', type=float, default=0.1, help='Poisoning ratio')
     parser.add_argument('--target_label', type=int, default=0, help='Poisoning ratio')
 
@@ -20,7 +20,7 @@ def args_parser():
     parser.add_argument('--task_name', type=str, default='classification', help='Task to be performed.')
     
     ############ Training Parameters
-    parser.add_argument('--train_epochs', type=int, default= 50)
+    parser.add_argument('--train_epochs', type=int, default= 30)
     parser.add_argument('--batchSize', type=int, default=32, help="batch size")
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
