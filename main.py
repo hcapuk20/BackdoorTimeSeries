@@ -13,6 +13,7 @@ from models.Bd_inverted import Model as Bd_inverted
 from models.Bd_patch import Model as Bd_patch
 from models.Transformer import Model as Transformer
 from models.SegRNN import Model as SegRNN
+from models.LightTS import Model as LightTS
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from epoch import *
@@ -25,7 +26,8 @@ model_dict = {
     'itransformer': iTransformer,
     'patchtst': PatchTST,
     'transformer': Transformer,
-    'segRNN': SegRNN
+    'segRNN': SegRNN,
+    'lightTS': LightTS
 }
 
 ######################################################### This is the V0 (initial prototype) code for time series backdoor ############################################
@@ -98,8 +100,7 @@ if __name__ == '__main__':
     # ===== Add loss criterion to the args =====
     args.criterion = nn.CrossEntropyLoss()
     # ===== Add optimizer to the args =====
-    if args.is_training == 1:
-
+    if args.load_bd_model is None:
         ### Experimental
         if args.warm_up:
             print('Warming up surrogate classifier...')
@@ -139,19 +140,26 @@ if __name__ == '__main__':
         print('Starting clean model training with backdoor samples...')
 
         bd_model.load_state_dict(best_dict)
-        bd_model.eval()
-        clean_ratio = 1 - args.poisoning_ratio
-        train_dataset, bd_dataset = torch.utils.data.random_split(train_data, [clean_ratio, args.poisoning_ratio])
-        bs = int(args.batchSize * clean_ratio) + 1
-        train_loader = custom_data_loader(train_dataset, args,flag='train',force_bs=bs)
-        bd_bs = int(args.batchSize * args.poisoning_ratio) + 1
-        bd_loader = custom_data_loader(bd_dataset, args,flag='train',force_bs=bd_bs)
-        clean_model = get_clean_model(args,train_data,test_data)
-        optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-9)
-        for i in tqdm(range(30)):
-            clean_model.train()
-            train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_model,clean_model, train_loader,bd_loader, args,optimizer)
-            clean_model.eval()
-            clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_model,clean_model, test_loader,args)
-            print('CA:',clean_test_acc,'ASR:',bd_accuracy_test)
-        save_results(args,clean_test_acc,bd_accuracy_test)
+
+    else:
+        print('Loading pretrained Backdoor trigger generator model...')
+        path = 'weights/' + args.load_bd_model
+        dicts = torch.load(path)
+        bd_model.load_state_dict(dicts)
+
+    bd_model.eval()
+    clean_ratio = 1 - args.poisoning_ratio
+    train_dataset, bd_dataset = torch.utils.data.random_split(train_data, [clean_ratio, args.poisoning_ratio])
+    bs = int(args.batchSize * clean_ratio) + 1
+    train_loader = custom_data_loader(train_dataset, args, flag='train', force_bs=bs)
+    bd_bs = int(args.batchSize * args.poisoning_ratio) + 1
+    bd_loader = custom_data_loader(bd_dataset, args, flag='train', force_bs=bd_bs)
+    clean_model = get_clean_model(args, train_data, test_data)
+    optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-9)
+    for i in tqdm(range(30)):
+        clean_model.train()
+        train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_model,clean_model, train_loader,bd_loader, args,optimizer)
+        clean_model.eval()
+        clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_model,clean_model, test_loader,args)
+        print('CA:',clean_test_acc,'ASR:',bd_accuracy_test)
+    save_results(args,clean_test_acc,bd_accuracy_test)
