@@ -14,6 +14,7 @@ from models.Bd_patch import Model as Bd_patch
 from models.Transformer import Model as Transformer
 from models.SegRNN import Model as SegRNN
 from models.LightTS import Model as LightTS
+from models.LSTM import LSTMClassifier as LSTM
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from epoch import *
@@ -27,7 +28,8 @@ model_dict = {
     'patchtst': PatchTST,
     'transformer': Transformer,
     'segRNN': SegRNN,
-    'lightTS': LightTS
+    'lightTS': LightTS,
+    'lstm': LSTM,
 }
 
 ######################################################### This is the V0 (initial prototype) code for time series backdoor ############################################
