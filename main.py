@@ -1,5 +1,4 @@
-import torch, time, pdb, os, random
-import numpy as np
+import os
 import torch.nn as nn
 from data_provider.data_factory import data_provider, custom_data_loader
 from models import * # Here we import the architecture
@@ -12,6 +11,8 @@ from models.PatchTST import Model as PatchTST
 from models.bd_Universal import Bd_Tnet
 from models.Bd_inverted import Model as Bd_inverted
 from models.Bd_patch import Model as Bd_patch
+from models.Transformer import Model as Transformer
+from models.SegRNN import Model as SegRNN
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from epoch import *
@@ -22,7 +23,9 @@ model_dict = {
     'FEDformer': FEDformer,
     'Informer': Informer,
     'itransformer': iTransformer,
-    'patchtst': PatchTST
+    'patchtst': PatchTST,
+    'transformer': Transformer,
+    'segRNN': SegRNN
 }
 
 ######################################################### This is the V0 (initial prototype) code for time series backdoor ############################################
@@ -77,6 +80,7 @@ def get_clean_model(args, train_data, test_data):
 if __name__ == '__main__':
     # ======================================================= parse args
     args = args_parser()
+    args.device = args.device if torch.cuda.is_available() else 'cpu'
     args.saveDir = 'weights/model_weights'  # path to be saved to
     # ======================================================= Initialize the model
     train_data, train_loader = get_data(args=args, flag='train')
@@ -111,7 +115,7 @@ if __name__ == '__main__':
         ####
         print('Starting backdoor model training...')
         opt_bd = torch.optim.AdamW(filter(lambda p: p.requires_grad, bd_model.parameters()), lr=args.lr)
-        for i in range(args.train_epochs):
+        for i in tqdm(range(args.train_epochs)):
             bd_model.train()
             #train_loss, train_acc = epoch(model,bd_model, train_loader, args,optimizer)
             train_loss, train_dic, train_acc,bd_train_acc = epoch(bd_model, train_loader, args, opt_bd)
