@@ -7,13 +7,14 @@ class Bd_Tnet(nn.Module):
         self.vanilla_model = vanilla_model
         self.generative_model = generative_model
         self.seq_len = config.seq_len
+        self.clip_ratio = config.clip_ratio
 
 
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         trigger = self.generative_model(x_enc,x_mark_enc,None,None)
         x_mark_enc = torch.cat((x_mark_enc, x_mark_enc), dim=0)
-        trigger_clipped = self.clipping(x_enc, trigger)
+        trigger_clipped = self.clipping(x_enc, trigger,self.clip_ratio)
         x_enc_comb = torch.cat((x_enc, x_enc + trigger_clipped), dim=0)
         preds = self.vanilla_model(x_enc_comb, x_mark_enc, None, None)
         return trigger,preds

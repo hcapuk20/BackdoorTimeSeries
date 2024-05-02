@@ -172,10 +172,10 @@ if __name__ == '__main__':
     bd_bs = int(args.batchSize * args.poisoning_ratio) + 1
     bd_loader = custom_data_loader(bd_dataset, args, flag='train', force_bs=bd_bs)
     clean_model = get_clean_model(args, train_data, test_data)
-    optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-9)
+    optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr)
 
 
-    for i in tqdm(range(30)):
+    for i in tqdm(range(100)):
         clean_model.train()
         train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_model,clean_model, train_loader,bd_loader, args,optimizer)
         clean_model.eval()

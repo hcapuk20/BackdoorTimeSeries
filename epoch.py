@@ -28,8 +28,8 @@ def epoch(bd_model, loader, args,optimiser=None): # for training and testing the
             all_labels = torch.cat((label,bd_labels),dim=0)
             trigger ,outs2 = bd_model(batch_x, padding_mask,None,None)
             loss1 = args.criterion(outs2, all_labels.long().squeeze(-1))
-            trigger_clipped = clipping(batch_x,trigger)
-            loss2 = torch.norm(trigger_clipped)
+            trigger_clipped = clipping(batch_x,trigger,args.clip_ratio)
+            loss2 = torch.norm(trigger - trigger_clipped) * 1
             loss = loss1 + loss2
             loss_dict['CE'].append(loss1.item())
             loss_dict['L2'].append(loss2.item())
@@ -39,7 +39,6 @@ def epoch(bd_model, loader, args,optimiser=None): # for training and testing the
             trues.append(label)
             if optimiser is not None:
                 loss.backward()
-                #nn.utils.clip_grad_norm_(bd_model.parameters(), max_norm=4.0)
                 optimiser.step()
     total_loss = np.average(total_loss)
     preds = torch.cat(preds, 0)
@@ -78,7 +77,7 @@ def epoch_clean_train(bd_model,clean_model, loader,loader_bd, args,optimiser): #
             bd_x = bd_x.to(args.device).float()
             bs_1, bs_2 = batch_x.size(0), bd_x.size(0)
             trigger_x,_ = bd_model(bd_x,padding_mask_bd,None,None)
-            trigger_clipped = clipping(bd_x, trigger_x)
+            trigger_clipped = clipping(bd_x, trigger_x,args.clip_ratio)
             bd_batch = bd_x + trigger_clipped
             label = label.to(args.device)
             label_bd = torch.ones_like(label_bd).to(args.device) * bd_label
@@ -119,7 +118,7 @@ def epoch_clean_test(bd_model,clean_model, loader,args): ## for testing the back
         padding_mask = padding_mask.float().to(args.device)
         label = label.to(args.device)
         trigger_x,_ = bd_model(batch_x, padding_mask, None, None)
-        trigger_clipped = clipping(batch_x, trigger_x)
+        trigger_clipped = clipping(batch_x, trigger_x,args.clip_ratio)
         clean_outs = clean_model(batch_x, padding_mask,None,None)
         bd_batch = batch_x + trigger_clipped
         bd_outs = clean_model(bd_batch, padding_mask,None,None)
