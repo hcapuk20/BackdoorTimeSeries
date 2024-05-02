@@ -77,10 +77,9 @@ def epoch_clean_train(bd_model,clean_model, loader,loader_bd, args,optimiser): #
             padding_mask,padding_mask_bd = padding_mask.float().to(args.device),padding_mask_bd.float().to(args.device)
             bd_x = bd_x.to(args.device).float()
             bs_1, bs_2 = batch_x.size(0), bd_x.size(0)
-            #padding_mask = torch.ones((bs_1, args.seq_len)).to(args.device).float()
-            #padding_mask_bd = torch.ones((bs_2, args.seq_len)).to(args.device).float()
             trigger_x,_ = bd_model(bd_x,padding_mask_bd,None,None)
-            bd_batch = bd_x + trigger_x
+            trigger_clipped = clipping(bd_x, trigger_x)
+            bd_batch = bd_x + trigger_clipped
             label = label.to(args.device)
             label_bd = torch.ones_like(label_bd).to(args.device) * bd_label
             all_labels = torch.cat((label,label_bd),dim=0)
@@ -120,8 +119,9 @@ def epoch_clean_test(bd_model,clean_model, loader,args): ## for testing the back
         padding_mask = padding_mask.float().to(args.device)
         label = label.to(args.device)
         trigger_x,_ = bd_model(batch_x, padding_mask, None, None)
+        trigger_clipped = clipping(batch_x, trigger_x)
         clean_outs = clean_model(batch_x, padding_mask,None,None)
-        bd_batch = batch_x + trigger_x
+        bd_batch = batch_x + trigger_clipped
         bd_outs = clean_model(bd_batch, padding_mask,None,None)
         preds.append(clean_outs.detach())
         bd_preds.append(bd_outs)
@@ -167,3 +167,37 @@ def clean_train(model,loader,args,optimizer): ### for warm up the surrogate clas
     accuracy = cal_accuracy(predictions, trues)
     return total_loss, accuracy
 
+
+def clean_test(model,loader,args): ### test CA without poisoining the model
+    model.eval()
+    total_loss = []
+    preds = []
+    trues = []
+    for i, (batch_x, label, padding_mask) in enumerate(loader):
+        model.zero_grad()
+        batch_x = batch_x.float().to(args.device)
+        padding_mask = padding_mask.float().to(args.device)
+        label = label.to(args.device)
+        outs = model(batch_x, padding_mask, None, None)
+        loss = args.criterion(outs, label.long().squeeze(-1))
+        total_loss.append(loss.item())
+        preds.append(outs.detach())
+        trues.append(label)
+    total_loss = np.average(total_loss)
+    preds = torch.cat(preds, 0)
+    trues = torch.cat(trues, 0)
+    probs = torch.nn.functional.softmax(
+        preds)  # (total_samples, num_classes) est. prob. for each class and sample
+    predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    trues = trues.flatten().cpu().numpy()
+    accuracy = cal_accuracy(predictions, trues)
+    return total_loss, accuracy
+
+
+def get_grad_flattened(model, device):
+    grad_flattened = torch.empty(0).to(device)
+    for p in model.parameters():
+        if p.requires_grad:
+            a = p.grad.data.flatten().to(device)
+            grad_flattened = torch.cat((grad_flattened, a), 0)
+    return grad_flattened

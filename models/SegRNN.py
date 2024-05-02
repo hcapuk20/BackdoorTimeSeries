@@ -24,8 +24,9 @@ class Model(nn.Module):
         else:
             self.pred_len = configs.pred_len
 
-        self.seg_len = 48
+        self.seg_len = 29
         self.seg_num_x = self.seq_len // self.seg_len
+        self.seg_num_x = 1 if self.seg_num_x == 0 else self.seg_num_x
         self.seg_num_y = self.pred_len // self.seg_len
 
         # building model

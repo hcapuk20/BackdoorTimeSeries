@@ -5,11 +5,12 @@ def args_parser():
     parser = argparse.ArgumentParser()
 
     #parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
-    parser.add_argument('--model', type=str, default='Informer', help='NN model')
+    parser.add_argument('--model', type=str, default='TimesNet', help='NN model')
     parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
     parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
     parser.add_argument('--poisoning_ratio', type=float, default=0.1, help='Poisoning ratio')
     parser.add_argument('--target_label', type=int, default=0, help='Poisoning ratio')
+    parser.add_argument('--load_bd_model', type=str, default='best_bd_model_weights.pth', help='path to the bd model weights')
 
 
     # Training or testing
@@ -58,7 +59,7 @@ def args_parser():
     parser.add_argument('--dec_in', type=int, default=7, help='decoder input size')
     parser.add_argument('--c_out', type=int, default=7, help='output size')
     parser.add_argument('--d_model', type=int, default=32, help='dimension of model')
-    parser.add_argument('--n_heads', type=int, default=8, help='num of heads')
+    parser.add_argument('--n_heads', type=int, default=4, help='num of heads')
     parser.add_argument('--e_layers', type=int, default=2, help='num of encoder layers')
     parser.add_argument('--d_layers', type=int, default=1, help='num of decoder layers')
     parser.add_argument('--d_ff', type=int, default=32, help='dimension of fcn')
@@ -74,6 +75,8 @@ def args_parser():
     parser.add_argument('--output_attention', action='store_true', help='whether to output attention in ecoder')
     parser.add_argument('--channel_independence', type=int, default=0,
                         help='1: channel dependence 0: channel independence for FreTS model')
+
+
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
