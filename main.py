@@ -15,7 +15,6 @@ from models.Transformer import Model as Transformer
 from models.SegRNN import Model as SegRNN
 from models.LightTS import Model as LightTS
 from models.LSTM import LSTMClassifier as LSTM
-from models.ResNet import ResNetClassifier as ResNet
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from epoch import *
@@ -31,10 +30,13 @@ model_dict = {
     'segRNN': SegRNN,
     'lightTS': LightTS,
     'lstm': LSTM,
-    'resnet': ResNet,
 }
 
 ######################################################### This is the V0 (initial prototype) code for time series backdoor ############################################
+
+### We use additive trigger generation (trigger is added to clean data and also clipped for impercemptibility)
+### Phase 1: Jointly train surrogate classifier (also better to be pre-trained wıth clean data) with trigger generater opt1: single optimizer opt2: one optimizer for each network
+### Phase 2: Train the classifier to be tested
 
 
 
@@ -44,21 +46,24 @@ def get_data(args, flag):
     return data_set, data_loader
 ############ Loading the model
 
-def get_bd_model(args, train_data, test_data):
+######################### Here we initialize the backdoor model ###################################
 
-    args.seq_len = max(train_data.max_seq_len, test_data.max_seq_len)
+def get_bd_model(args, train_data, test_data):
+    args.seq_len = max(train_data.max_seq_len, test_data.max_seq_len) ## seq length
     args.pred_len = 0
     args.enc_in = train_data.feature_df.shape[1]
     print('enc_in',args.enc_in,'seq_len',args.seq_len)
     args.num_class = len(train_data.class_names)
     # model init
     model_sur = model_dict[args.model_sur](args).float()
+    ############## Trigger Network ################################
     if args.bd_model == 'inverted':
         generative_model = Bd_inverted(args).float().to(args.device)
     elif args.bd_model == 'patchtst':
         generative_model = Bd_patch(args).float().to(args.device)
     else:
         raise NotImplementedError
+    ################## Combined Model ===> backdoor trigger network + surrogate classifier network ###################
     bd_model = Bd_Tnet(args,model_sur,generative_model).float().to(args.device)
     if args.use_multi_gpu and args.use_gpu:
         bd_model = nn.DataParallel(bd_model, device_ids=args.device_ids)
@@ -81,8 +86,6 @@ def get_clean_model(args, train_data, test_data):
 ############ Training the model
 
 
-
-
 if __name__ == '__main__':
     # ======================================================= parse args
     args = args_parser()
@@ -95,7 +98,8 @@ if __name__ == '__main__':
     args.pred_len = 0
     args.enc_in = train_data.feature_df.shape[1]
     args.num_class = len(train_data.class_names)
-    bd_model = get_bd_model(args,train_data,test_data)
+    #################### bd_model is the combined model ===> backdoor trigger network + surrogate classifier network
+    bd_model = get_bd_model(args,train_data,test_data) # ===> also take data as a input since initializion of the networks requıres the seq length of the data
     best_bd = 0
     best_dict = None
     last_dict = None
@@ -118,12 +122,14 @@ if __name__ == '__main__':
                 print('Freezing classifier')
         opt_surr = None
         ####
-        print('Starting backdoor model training...')
+        print('Starting backdoor model training...') 
+        ######################################## ************************ bu kısım sankı hatalı
         opt_bd = torch.optim.AdamW(filter(lambda p: p.requires_grad, bd_model.parameters()), lr=args.lr)
         for i in tqdm(range(args.train_epochs)):
+            ########### Here train the trigger while also update the surrogate classifier #########
             bd_model.train()
-            #train_loss, train_acc = epoch(model,bd_model, train_loader, args,optimizer)
             train_loss, train_dic, train_acc,bd_train_acc = epoch(bd_model, train_loader, args, opt_bd)
+            ############################################
             bd_model.eval()
             test_loss, test_dic,test_acc, bd_test_acc = epoch(bd_model,test_loader, args)
             print('Train Loss',train_loss,'Train acc',train_acc,'Test Loss',test_loss,'Test acc',test_acc)

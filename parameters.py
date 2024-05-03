@@ -11,7 +11,7 @@ def args_parser():
     parser.add_argument('--poisoning_ratio', type=float, default=0.1, help='Poisoning ratio')
     parser.add_argument('--clip_ratio', type=float, default=0.1, help='Poisoning ratio')
     parser.add_argument('--target_label', type=int, default=0, help='Poisoning ratio')
-    parser.add_argument('--load_bd_model', type=str, default='best_bd_model_weights.pth', help='path to the bd model weights')
+    parser.add_argument('--load_bd_model', type=str, default=None, help='path to the bd model weights')
 
 
     # Training or testing
@@ -22,7 +22,7 @@ def args_parser():
     parser.add_argument('--task_name', type=str, default='classification', help='Task to be performed.')
     
     ############ Training Parameters
-    parser.add_argument('--train_epochs', type=int, default= 30)
+    parser.add_argument('--train_epochs', type=int, default= 100)
     parser.add_argument('--batchSize', type=int, default=32, help="batch size")
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")

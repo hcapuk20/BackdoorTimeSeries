@@ -4,55 +4,60 @@ import numpy as np
 
 def cal_accuracy(y_pred, y_true):
     return np.mean(y_pred == y_true)
+    
+############### shoul be removed #######################    
 def clipping(x_enc, trigger, ratio=0.1):
     lim = x_enc.abs() * 0.1 * ratio
     x_gen_clipped = torch.where(trigger < -lim, -lim,
                                 torch.where(trigger > lim, lim, trigger))
     return x_gen_clipped
-
-def epoch(bd_model, loader, args,optimiser=None): # for training and testing the backdoor generator
-    #
+################################################################################
+def epoch(bd_model, loader, args, optimiser=None): ##### The main training module
     epoch_loss_record = []
     total_loss = []
-    preds = []
+    all_preds = []
     bd_preds = []
     trues = []
-    bd_label = args.target_label
+    bd_label = args.target_label ################## unused
     loss_dict = {'CE':[],'L2':[]}
     for i, (batch_x, label, padding_mask) in enumerate(loader):
             bd_model.zero_grad()
+            #### Fetch clean data
             batch_x = batch_x.float().to(args.device)
+            #### Fetch mask (for forecast task)
             padding_mask = padding_mask.float().to(args.device)
+            #### Fetch labels
             label = label.to(args.device)
-            bd_labels = torch.ones_like(label).to(args.device) * bd_label
+            #### Generate backdoor labels ####### so far we focus on fixed target scenario
+            bd_labels = torch.ones_like(label).to(args.device) * bd_label ## comes from argument
+            #### Combine true and target labels 
             all_labels = torch.cat((label,bd_labels),dim=0)
-            trigger ,outs2 = bd_model(batch_x, padding_mask,None,None)
-            loss1 = args.criterion(outs2, all_labels.long().squeeze(-1))
-            trigger_clipped = clipping(batch_x,trigger,args.clip_ratio)
-            loss2 = torch.norm(trigger - trigger_clipped) * 1
+            ########### Here we generate trigger #####################
+            trigger, trigger_clip, preds = bd_model(batch_x, padding_mask,None,None)
+            loss1 = args.criterion(preds, all_labels.long().squeeze(-1))
+            loss2 = torch.norm(trigger - trigger_clip) * 1
             loss = loss1 + loss2
             loss_dict['CE'].append(loss1.item())
             loss_dict['L2'].append(loss2.item())
             total_loss.append(loss.item())
-            preds.append(outs2.detach().chunk(2)[0])
-            bd_preds.append(outs2.detach().chunk(2)[1])
+            all_preds.append(preds.detach().chunk(2)[0])
+            bd_preds.append(preds.detach().chunk(2)[1])
             trues.append(label)
             if optimiser is not None:
                 loss.backward()
                 optimiser.step()
     total_loss = np.average(total_loss)
-    preds = torch.cat(preds, 0)
+    all_preds = torch.cat(preds, 0)
     bd_preds = torch.cat(bd_preds, 0)
     trues = torch.cat(trues, 0)
     bd_labels = torch.ones_like(trues) * bd_label
     probs = torch.nn.functional.softmax(
-        preds)  # (total_samples, num_classes) est. prob. for each class and sample
+        all_preds)  # (total_samples, num_classes) est. prob. for each class and sample
     predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
     bd_predictions = torch.argmax(torch.nn.functional.softmax(bd_preds), dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
     trues = trues.flatten().cpu().numpy()
     accuracy = cal_accuracy(predictions, trues)
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
-
     return total_loss,loss_dict, accuracy,bd_accuracy
 
 def epoch_clean_train(bd_model,clean_model, loader,loader_bd, args,optimiser): #for training clean model with fraction of backdoored data
@@ -76,8 +81,7 @@ def epoch_clean_train(bd_model,clean_model, loader,loader_bd, args,optimiser): #
             padding_mask,padding_mask_bd = padding_mask.float().to(args.device),padding_mask_bd.float().to(args.device)
             bd_x = bd_x.to(args.device).float()
             bs_1, bs_2 = batch_x.size(0), bd_x.size(0)
-            trigger_x,_ = bd_model(bd_x,padding_mask_bd,None,None)
-            trigger_clipped = clipping(bd_x, trigger_x,args.clip_ratio)
+            trigger_x,trigger_clipped,_ = bd_model(bd_x,padding_mask_bd,None,None)
             bd_batch = bd_x + trigger_clipped
             label = label.to(args.device)
             label_bd = torch.ones_like(label_bd).to(args.device) * bd_label
@@ -117,8 +121,7 @@ def epoch_clean_test(bd_model,clean_model, loader,args): ## for testing the back
         batch_x = batch_x.float().to(args.device)
         padding_mask = padding_mask.float().to(args.device)
         label = label.to(args.device)
-        trigger_x,_ = bd_model(batch_x, padding_mask, None, None)
-        trigger_clipped = clipping(batch_x, trigger_x,args.clip_ratio)
+        trigger_x,trigger_clipped,_ = bd_model(batch_x, padding_mask, None, None)
         clean_outs = clean_model(batch_x, padding_mask,None,None)
         bd_batch = batch_x + trigger_clipped
         bd_outs = clean_model(bd_batch, padding_mask,None,None)
