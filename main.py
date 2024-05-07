@@ -15,6 +15,7 @@ from models.Transformer import Model as Transformer
 from models.SegRNN import Model as SegRNN
 from models.LightTS import Model as LightTS
 from models.LSTM import LSTMClassifier as LSTM
+from models.ResNet import ResNetClassifier as ResNet
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from epoch import *
@@ -30,6 +31,7 @@ model_dict = {
     'segRNN': SegRNN,
     'lightTS': LightTS,
     'lstm': LSTM,
+    'resnet': ResNet,
 }
 
 ######################################################### This is the V0 (initial prototype) code for time series backdoor ############################################
