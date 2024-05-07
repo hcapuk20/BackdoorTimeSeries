@@ -47,7 +47,7 @@ def epoch(bd_model, loader, args, optimiser=None): ##### The main training modul
                 loss.backward()
                 optimiser.step()
     total_loss = np.average(total_loss)
-    all_preds = torch.cat(preds, 0)
+    all_preds = torch.cat(all_preds, 0)
     bd_preds = torch.cat(bd_preds, 0)
     trues = torch.cat(trues, 0)
     bd_labels = torch.ones_like(trues) * bd_label

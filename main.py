@@ -114,10 +114,10 @@ if __name__ == '__main__':
         ### Experimental
         if args.warm_up:
             print('Warming up surrogate classifier...')
-            opt_surr = torch.optim.Adam(bd_model.vanilla_model.parameters(), lr=args.lr)
+            opt_surr = torch.optim.Adam(bd_model.classifier.parameters(), lr=args.lr)
             for i in range(3):
                 bd_model.train()
-                total_loss, accuracy = clean_train(bd_model.vanilla_model, train_loader, args, opt_surr)
+                total_loss, accuracy = clean_train(bd_model.classifier, train_loader, args, opt_surr)
                 print('Train Loss', total_loss, 'Train acc', accuracy)
             if args.freeze_surrogate:
                 bd_model.freeze_classifier()
