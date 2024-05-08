@@ -108,7 +108,7 @@ if __name__ == '__main__':
     print("model initialized...")
     # ============================================================================
     # ===== Add loss criterion to the args =====
-    args.criterion = nn.CrossEntropyLoss()
+    args.criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smooth)
     # ===== Add optimizer to the args =====
     if args.load_bd_model is None:
         ### Experimental
@@ -177,9 +177,9 @@ if __name__ == '__main__':
 
     clean_ratio = 1 - args.poisoning_ratio
     train_dataset, bd_dataset = torch.utils.data.random_split(train_data, [clean_ratio, args.poisoning_ratio])
-    bs = int(args.batchSize * clean_ratio) + 1
+    bs = int(args.batch_size * clean_ratio) + 1
     train_loader = custom_data_loader(train_dataset, args, flag='train', force_bs=bs)
-    bd_bs = int(args.batchSize * args.poisoning_ratio) + 1
+    bd_bs = int(args.batch_size * args.poisoning_ratio) + 1
     bd_loader = custom_data_loader(bd_dataset, args, flag='train', force_bs=bd_bs)
     clean_model = get_clean_model(args, train_data, test_data)
     optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr)

@@ -5,13 +5,15 @@ def args_parser():
     parser = argparse.ArgumentParser()
 
     #parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
-    parser.add_argument('--model', type=str, default='TimesNet', help='NN model')
+    parser.add_argument('--model', type=str, default='resnet', help='NN model')
     parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
     parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
     parser.add_argument('--poisoning_ratio', type=float, default=0.1, help='Poisoning ratio')
+    parser.add_argument('--poisoning_ratio_train', type=float, default=1, help='Poisoning ratio of the batch in the trining phase')
     parser.add_argument('--clip_ratio', type=float, default=0.1, help='Poisoning ratio')
     parser.add_argument('--target_label', type=int, default=0, help='Poisoning ratio')
     parser.add_argument('--load_bd_model', type=str, default=None, help='path to the bd model weights')
+    parser.add_argument('--label_smooth', type=float, default=0.05, help='label smoothing')
 
 
     # Training or testing
@@ -23,7 +25,7 @@ def args_parser():
     
     ############ Training Parameters
     parser.add_argument('--train_epochs', type=int, default= 100)
-    parser.add_argument('--batchSize', type=int, default=32, help="batch size")
+    parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
     parser.add_argument('--wd', type=float, default=0.01, help="weight decay")
@@ -81,7 +83,6 @@ def args_parser():
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
-    parser.add_argument('--batch_size', type=int, default=2, help='batch size of train input data')
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='optimizer learning rate')
     parser.add_argument('--des', type=str, default='exp', help='exp description')

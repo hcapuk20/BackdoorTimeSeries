@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-
+import torch.nn as nn
 
 def cal_accuracy(y_pred, y_true):
     return np.mean(y_pred == y_true)
@@ -12,15 +12,17 @@ def clipping(x_enc, trigger, ratio=0.1):
                                 torch.where(trigger > lim, lim, trigger))
     return x_gen_clipped
 ################################################################################
-def epoch(bd_model, loader, args, optimiser=None): ##### The main training module
-    epoch_loss_record = []
+
+def epoch(bd_model, loader, args, opt=None): ##### The main training module
     total_loss = []
     all_preds = []
     bd_preds = []
     trues = []
     bd_label = args.target_label ################## unused
     loss_dict = {'CE':[],'L2':[]}
+    ratio = args.poisoning_ratio_train
     for i, (batch_x, label, padding_mask) in enumerate(loader):
+            b_r = int(batch_x.size(0) * ratio)
             bd_model.zero_grad()
             #### Fetch clean data
             batch_x = batch_x.float().to(args.device)
@@ -30,22 +32,24 @@ def epoch(bd_model, loader, args, optimiser=None): ##### The main training modul
             label = label.to(args.device)
             #### Generate backdoor labels ####### so far we focus on fixed target scenario
             bd_labels = torch.ones_like(label).to(args.device) * bd_label ## comes from argument
-            #### Combine true and target labels 
-            all_labels = torch.cat((label,bd_labels),dim=0)
+            #### Combine true and target labels
+            all_labels = torch.cat((label,bd_labels[:b_r]),dim=0)
             ########### Here we generate trigger #####################
             trigger, trigger_clip, preds = bd_model(batch_x, padding_mask,None,None)
-            loss1 = args.criterion(preds, all_labels.long().squeeze(-1))
-            loss2 = torch.norm(trigger - trigger_clip) * 1
+            clean_pred, bd_pred = preds.chunk(2)
+            bd_pred = bd_pred[:b_r]
+            loss1 = args.criterion(torch.cat((clean_pred,bd_pred),dim=0), all_labels.long().squeeze(-1))
+            loss2 = torch.norm(trigger[:b_r] - trigger_clip[:b_r]) * 1
             loss = loss1 + loss2
             loss_dict['CE'].append(loss1.item())
             loss_dict['L2'].append(loss2.item())
             total_loss.append(loss.item())
-            all_preds.append(preds.detach().chunk(2)[0])
-            bd_preds.append(preds.detach().chunk(2)[1])
+            all_preds.append(clean_pred)
+            bd_preds.append(bd_pred)
             trues.append(label)
-            if optimiser is not None:
+            if opt is not None:
                 loss.backward()
-                optimiser.step()
+                opt.step()
     total_loss = np.average(total_loss)
     all_preds = torch.cat(all_preds, 0)
     bd_preds = torch.cat(bd_preds, 0)
@@ -68,6 +72,7 @@ def epoch_clean_train(bd_model,clean_model, loader,loader_bd, args,optimiser): #
     backdoors = []
     bd_label = args.target_label
     nb = iter(loader_bd)
+    cri = nn.CrossEntropyLoss()
     for i, (batch_x, label, padding_mask) in enumerate(loader):
             try:
                 bd_batch = next(nb)
@@ -89,7 +94,7 @@ def epoch_clean_train(bd_model,clean_model, loader,loader_bd, args,optimiser): #
             padding_mask = torch.cat((padding_mask,padding_mask_bd),dim=0)
             batch_x = torch.cat((batch_x,bd_batch),dim=0)
             outs2 = clean_model(batch_x, padding_mask,None,None)
-            loss = args.criterion(outs2, all_labels.long().squeeze(-1))
+            loss = cri(outs2, all_labels.long().squeeze(-1))
             total_loss.append(loss.item())
             preds.append(outs2.detach()[:bs_1])
             bd_preds.append(outs2.detach()[bs_1:])
