@@ -86,7 +86,7 @@ def epoch_clean_train(bd_model,clean_model, loader,loader_bd, args,optimiser): #
             padding_mask,padding_mask_bd = padding_mask.float().to(args.device),padding_mask_bd.float().to(args.device)
             bd_x = bd_x.to(args.device).float()
             bs_1, bs_2 = batch_x.size(0), bd_x.size(0)
-            trigger_x,trigger_clipped,_ = bd_model(bd_x,padding_mask_bd,None,None)
+            trigger_x,trigger_clipped = bd_model(bd_x,padding_mask_bd,None,None)
             bd_batch = bd_x + trigger_clipped
             label = label.to(args.device)
             label_bd = torch.ones_like(label_bd).to(args.device) * bd_label
@@ -126,7 +126,7 @@ def epoch_clean_test(bd_model,clean_model, loader,args): ## for testing the back
         batch_x = batch_x.float().to(args.device)
         padding_mask = padding_mask.float().to(args.device)
         label = label.to(args.device)
-        trigger_x,trigger_clipped,_ = bd_model(batch_x, padding_mask, None, None)
+        trigger_x,trigger_clipped = bd_model(batch_x, padding_mask, None, None)
         clean_outs = clean_model(batch_x, padding_mask,None,None)
         bd_batch = batch_x + trigger_clipped
         bd_outs = clean_model(bd_batch, padding_mask,None,None)

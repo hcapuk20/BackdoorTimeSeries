@@ -145,21 +145,23 @@ if __name__ == '__main__':
                 best_dict = bd_model.state_dict()
                 if not os.path.exists('weights'):
                     os.makedirs('weights')
-                torch.save(bd_model.state_dict(), 'weights/best_bd_model_weights.pth')
-            torch.save(bd_model.state_dict(), 'weights/last_bd_model_weights.pth')
+                torch.save(bd_model.trigger.state_dict(), 'weights/best_bd_model_weights.pth')
+            torch.save(bd_model.trigger.state_dict(), 'weights/last_bd_model_weights.pth')
         #last_dict = bd_model.state_dict()
 
         print('Starting clean model training with backdoor samples...')
 
         bd_model.load_state_dict(best_dict)
+        bd_generator = bd_model.trigger
 
     else:
         print('Loading pretrained Backdoor trigger generator model...')
         path = 'weights/' + args.load_bd_model
         dicts = torch.load(path)
-        bd_model.load_state_dict(dicts)
+        bd_generator = bd_model.trigger
+        bd_generator.load_state_dict(dicts)
 
-    bd_model.eval()
+    bd_generator.eval()
 
     # ################Clean Model tranining for  testing the model without attacks##############################
     # for i in range(30):
@@ -187,8 +189,8 @@ if __name__ == '__main__':
 
     for i in tqdm(range(100)):
         clean_model.train()
-        train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_model,clean_model, train_loader,bd_loader, args,optimizer)
+        train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_generator, clean_model, train_loader, bd_loader, args, optimizer)
         clean_model.eval()
-        clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_model,clean_model, test_loader,args)
+        clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator,clean_model, test_loader,args)
         print('CA:',clean_test_acc,'ASR:',bd_accuracy_test)
     save_results(args,clean_test_acc,bd_accuracy_test)

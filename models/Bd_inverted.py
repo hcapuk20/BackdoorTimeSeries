@@ -64,22 +64,20 @@ class Model(nn.Module):
         dec_out = dec_out + (means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
         return dec_out
 
-    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
+    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, clip_ratio=0.1):
         dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
         dec_out = dec_out[:, -self.pred_len:, :]
         #dec_out = self.th_clipping2(x_enc, dec_out)
-        return dec_out  # [B, L, D]
+        clipped = self.clipping_amp(x_enc,dec_out,clip_ratio)
+        return dec_out,clipped  # [B, L, D]
 
-    def th_clipping(self,x_enc, x_gen):
-            low = x_enc.add(x_enc, alpha=-.1)
-            high = x_enc.add(x_enc, alpha=.1)
-            x_gen_clipped = torch.where(x_gen < low, low,
-                                   torch.where(x_gen > high, high, x_gen))
-            return x_gen_clipped
-
-    def th_clipping2(self,x_enc, x_gen):
-            lim = x_enc.abs() * .1
-            x_gen_clipped = torch.where(x_gen < -lim, -lim,
-                                   torch.where(x_gen > lim, lim, x_gen))
-            return x_gen_clipped
+    def clipping_amp(self, x_enc, x_gen,
+                     ratio=0.1):  #### Amp clipping =>> the change in the value can not be higher than certaın fraction of the signal amp max-min
+        ## ---> shape B x C x T ---> batch channel time
+        max_val, max_ind = torch.max(x_enc, dim=2)  # max value of obs in clean data
+        min_val, min_ind = torch.min(x_enc, dim=2)  # min value of obs in clean data
+        amp = max_val - min_val  ## amplitude of each sub-serie B x C
+        amp = amp.unsqueeze(dim=2)
+        x_gen_clip = torch.clamp(x_gen, min=-amp * ratio, max=amp * ratio)
+        return x_gen_clip
 

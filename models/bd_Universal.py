@@ -9,6 +9,7 @@ class Bd_Tnet(nn.Module):
         self.classifier = surr_classifier_model
         self.trigger = bd_trigger_model
         self.seq_len = config.seq_len ## seq length
+        self.clip_ratio = config.clip_ratio
     def freeze_classifier(self):
         for param in self.classifier.parameters():
             param.requires_grad = False
@@ -30,9 +31,8 @@ class Bd_Tnet(nn.Module):
 
     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec): ### x_dec, x_mark_dec for the forecast task ### x_mark_enc, x_mark_dec ---> masks not used for classification
         ####### Generate Trigger #######
-        trigger = self.trigger(x_enc,x_mark_enc,None,None) ## ====> generate the trigger pattern (additive)
+        trigger,trigger_clipped = self.trigger(x_enc,x_mark_enc,None,None,self.clip_ratio) ## ====> generate the trigger pattern (additive)
         x_mark_enc = torch.cat((x_mark_enc, x_mark_enc), dim=0) ## ====> masks not used for classification but use to make code compatible
-        trigger_clipped = self.clipping_amp(x_enc, trigger) ## ====> clip the additive trigger
         x_enc_comb = torch.cat((x_enc, x_enc + trigger_clipped), dim=0) ## ===> combined data of clean and backdoored
         preds = self.classifier(x_enc_comb, x_mark_enc, None, None)
         return trigger, trigger_clipped, preds
