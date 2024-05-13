@@ -47,6 +47,11 @@ model_dict = {
 ##### 2) Softmix: mix clean and backdoored data with 0< \lambda < 1 (as well as labels ) to mitigate simple trigger patterns 
 ##### that is trigger network learns a meaningfull realtion  between the trigger pattern and the target label ** \lambda may change gradually over iters
 
+################### Attack Framework ################################################
+### Initial design: fixed target attack (target label is fixed and same for all) 
+### step2: dynamic target attack (generate trigger for any given target label) 
+### step3: the best traget attack (for each target or label first decide the best target label then generate trigger, similar to adversarial)
+
 
 ############ Loading the dataset
 def get_data(args, flag):
