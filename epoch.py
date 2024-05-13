@@ -2,6 +2,24 @@ import torch
 import numpy as np
 import torch.nn as nn
 
+
+##################### Regularizers ########################
+
+
+
+
+### for the set of regularizers
+
+
+
+
+
+############################################################
+
+
+
+
+
 def cal_accuracy(y_pred, y_true):
     return np.mean(y_pred == y_true)
     
