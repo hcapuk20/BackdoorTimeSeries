@@ -68,7 +68,7 @@ def get_bd_model(args, train_data, test_data):
     print('enc_in',args.enc_in,'seq_len',args.seq_len)
     args.num_class = len(train_data.class_names)
     # model init
-    model_sur = model_dict[args.model_sur](args).float()
+    model_sur = model_dict[args.model_sur](args).float().to(args.device)
     ############## Trigger Network ################################
     if args.bd_model == 'inverted':
         generative_model = Bd_inverted(args).float().to(args.device)
