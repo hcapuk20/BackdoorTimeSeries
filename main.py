@@ -45,7 +45,7 @@ model_dict = {
 ################### Regularizers for during training #################################
 ##### 1) Frequency transfer: objective is to change the dominant freq. components of the clean data when trigger is inserted
 ##### 2) Softmix: mix clean and backdoored data with 0< \lambda < 1 (as well as labels ) to mitigate simple trigger patterns 
-##### that is trigger network learns a meaningfull realtion  between the trigger pattern and the target label
+##### that is trigger network learns a meaningfull realtion  between the trigger pattern and the target label ** \lambda may change gradually over iters
 
 
 ############ Loading the dataset
