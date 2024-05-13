@@ -107,7 +107,8 @@ if __name__ == '__main__':
     args.enc_in = train_data.feature_df.shape[1]
     args.num_class = len(train_data.class_names)
     #################### bd_model is the combined model ===> backdoor trigger network + surrogate classifier network
-    bd_model = get_bd_model(args,train_data,test_data) # ===> also take data as a input since initializion of the networks requıres the seq length of the data
+    bd_model = get_bd_model(args,train_data,test_data) # ===> also take data as a input 
+    #since initializion of the networks requires the seq length of the data
     best_bd = 0
     best_dict = None
     last_dict = None
