@@ -37,9 +37,15 @@ model_dict = {
 ######################################################### This is the V0 (initial prototype) code for time series backdoor ############################################
 
 ### We use additive trigger generation (trigger is added to clean data and also clipped for impercemptibility)
-### Phase 1: Jointly train surrogate classifier (also better to be pre-trained wıth clean data) with trigger generater opt1: single optimizer opt2: one optimizer for each network
-### Phase 2: Train the classifier to be tested
+### Phase 1: Jointly train surrogate classifier (also better to be pre-trained wıth clean data) with trigger generater 
+### opt1: single optimizer single loss opt2: Iterative training two loss and  two optimizer 
+### Phase 2: Train the final classifier with backdoored data to measure ASR of trigger model
 
+
+################### Regularizers for during training #################################
+##### 1) Frequency transfer: objective is to change the dominant freq. components of the clean data when trigger is inserted
+##### 2) Softmix: mix clean and backdoored data with 0< \lambda < 1 (as well as labels ) to mitigate simple trigger patterns 
+##### that is trigger network learns a meaningfull realtion  between the trigger pattern and the target label
 
 
 ############ Loading the dataset
