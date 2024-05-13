@@ -3,8 +3,19 @@ import numpy as np
 import torch.nn as nn
 
 
+################
+'''
+TODO
+- bd and clean inputs should not be concatenated
+- bd-model, separate trigger and surrogate classifier 
+- add 2 opt backdoor epoch
+'''
+
+
 ##################### Regularizers ########################
 
+def l2_reg(clipped_trigger, trigger):
+    return torch.norm(trigger - clipped_trigger)
 
 
 
@@ -12,36 +23,25 @@ import torch.nn as nn
 
 
 
-
-
-############################################################
-
-
-
-
-
 def cal_accuracy(y_pred, y_true):
     return np.mean(y_pred == y_true)
     
-############### shoul be removed #######################    
-def clipping(x_enc, trigger, ratio=0.1):
-    lim = x_enc.abs() * 0.1 * ratio
-    x_gen_clipped = torch.where(trigger < -lim, -lim,
-                                torch.where(trigger > lim, lim, trigger))
-    return x_gen_clipped
+
 ################################################################################
 
-def epoch(bd_model, loader, args, opt=None): ##### The main training module
+def epoch(bd_model,surr_model, loader, args, opt=None): ##### The main training module
     total_loss = []
     all_preds = []
     bd_preds = []
     trues = []
-    bd_label = args.target_label ################## unused
-    loss_dict = {'CE':[],'L2':[]}
+    bds = []
+    bd_label = args.target_label
+    loss_dict = {'CE_c':[],'CE_bd':[],'reg':[]}
     ratio = args.poisoning_ratio_train
     for i, (batch_x, label, padding_mask) in enumerate(loader):
             b_r = int(batch_x.size(0) * ratio)
             bd_model.zero_grad()
+            surr_model.zero_grad()
             #### Fetch clean data
             batch_x = batch_x.float().to(args.device)
             #### Fetch mask (for forecast task)
@@ -51,20 +51,22 @@ def epoch(bd_model, loader, args, opt=None): ##### The main training module
             #### Generate backdoor labels ####### so far we focus on fixed target scenario
             bd_labels = torch.ones_like(label).to(args.device) * bd_label ## comes from argument
             #### Combine true and target labels
-            all_labels = torch.cat((label,bd_labels[:b_r]),dim=0)
             ########### Here we generate trigger #####################
-            trigger, trigger_clip, preds = bd_model(batch_x, padding_mask,None,None)
-            clean_pred, bd_pred = preds.chunk(2)
-            bd_pred = bd_pred[:b_r]
-            loss1 = args.criterion(torch.cat((clean_pred,bd_pred),dim=0), all_labels.long().squeeze(-1))
-            loss2 = torch.norm(trigger[:b_r] - trigger_clip[:b_r]) * 1
-            loss = loss1 + loss2
-            loss_dict['CE'].append(loss1.item())
-            loss_dict['L2'].append(loss2.item())
+            trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None)
+            clean_pred = surr_model(batch_x, padding_mask,None,None)
+            bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
+            loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
+            loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
+            loss_reg = l2_reg(trigger_clip, trigger)
+            loss = loss_clean + loss_bd + loss_reg
+            loss_dict['CE_c'].append(loss_clean.item())
+            loss_dict['CE_bd'].append(loss_bd.item())
+            loss_dict['reg'].append(loss.item())
             total_loss.append(loss.item())
             all_preds.append(clean_pred)
             bd_preds.append(bd_pred)
             trues.append(label)
+            bds.append(bd_labels)
             if opt is not None:
                 loss.backward()
                 opt.step()
@@ -72,7 +74,7 @@ def epoch(bd_model, loader, args, opt=None): ##### The main training module
     all_preds = torch.cat(all_preds, 0)
     bd_preds = torch.cat(bd_preds, 0)
     trues = torch.cat(trues, 0)
-    bd_labels = torch.ones_like(trues) * bd_label
+    bd_labels = torch.cat(bds, 0)
     probs = torch.nn.functional.softmax(
         all_preds)  # (total_samples, num_classes) est. prob. for each class and sample
     predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample

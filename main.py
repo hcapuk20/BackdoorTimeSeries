@@ -77,10 +77,10 @@ def get_bd_model(args, train_data, test_data):
     else:
         raise NotImplementedError
     ################## Combined Model ===> backdoor trigger network + surrogate classifier network ###################
-    bd_model = Bd_Tnet(args,model_sur,generative_model).float().to(args.device)
+    bd_model = Bd_Tnet(args,generative_model).float().to(args.device)
     if args.use_multi_gpu and args.use_gpu:
         bd_model = nn.DataParallel(bd_model, device_ids=args.device_ids)
-    return bd_model
+    return bd_model,model_sur
 
 def get_clean_model(args, train_data, test_data):
     args.seq_len = max(train_data.max_seq_len, test_data.max_seq_len)
@@ -112,7 +112,7 @@ if __name__ == '__main__':
     args.enc_in = train_data.feature_df.shape[1]
     args.num_class = len(train_data.class_names)
     #################### bd_model is the combined model ===> backdoor trigger network + surrogate classifier network
-    bd_model = get_bd_model(args,train_data,test_data) # ===> also take data as a input 
+    bd_model,surr_model = get_bd_model(args,train_data,test_data) # ===> also take data as a input
     #since initializion of the networks requires the seq length of the data
     best_bd = 0
     best_dict = None
@@ -126,10 +126,10 @@ if __name__ == '__main__':
         ### Experimental
         if args.warm_up:
             print('Warming up surrogate classifier...')
-            opt_surr = torch.optim.Adam(bd_model.classifier.parameters(), lr=args.lr)
+            opt_surr = torch.optim.Adam(surr_model.parameters(), lr=args.lr)
             for i in range(3):
                 bd_model.train()
-                total_loss, accuracy = clean_train(bd_model.classifier, train_loader, args, opt_surr)
+                total_loss, accuracy = clean_train(surr_model, train_loader, args, opt_surr)
                 print('Train Loss', total_loss, 'Train acc', accuracy)
             if args.freeze_surrogate:
                 bd_model.freeze_classifier()
@@ -138,20 +138,23 @@ if __name__ == '__main__':
         ####
         print('Starting backdoor model training...') 
         ######################################## ************************ bu kısım sankı hatalı
-        opt_bd = torch.optim.AdamW(filter(lambda p: p.requires_grad, bd_model.parameters()), lr=args.lr)
+        #opt_bd = torch.optim.AdamW(filter(lambda p: p.requires_grad, bd_model.parameters()), lr=args.lr)
+        collective_params = list(surr_model.parameters()) + list(bd_model.parameters())
+        opt_bd = torch.optim.AdamW(collective_params, lr=args.lr)
         for i in tqdm(range(args.train_epochs)):
             ########### Here train the trigger while also update the surrogate classifier #########
             bd_model.train()
-            train_loss, train_dic, train_acc,bd_train_acc = epoch(bd_model, train_loader, args, opt_bd)
+            train_loss, train_dic, train_acc,bd_train_acc = epoch(bd_model,surr_model, train_loader, args, opt_bd)
             ############################################
             bd_model.eval()
-            test_loss, test_dic,test_acc, bd_test_acc = epoch(bd_model,test_loader, args)
+            test_loss, test_dic,test_acc, bd_test_acc = epoch(bd_model,surr_model,test_loader, args)
             print('Train Loss',train_loss,'Train acc',train_acc,'Test Loss',test_loss,'Test acc',test_acc)
             print('Backdoor Train',bd_train_acc,'Backdoor Test',bd_test_acc)
-            ce_train,ce_test = np.average(train_dic['CE']),np.average(test_dic['CE'])
-            l2_train,l2_test = np.average(train_dic['L2']),np.average(test_dic['L2'])
-            print('CE Train',ce_train,'L2 Train',l2_train)
-            print('CE Test',ce_test,'L2 Test',l2_test)
+            ce_c_train,ce_c_test = np.average(train_dic['CE_c']),np.average(test_dic['CE_c'])
+            ce_bd_train, ce_bd_test = np.average(train_dic['CE_bd']), np.average(test_dic['CE_bd'])
+            reg_train,reg_test = np.average(train_dic['reg']),np.average(test_dic['reg'])
+            print('CE clean Train',ce_c_train,'CE Backdoor train: ',ce_bd_train,'Reg Train',reg_train)
+            print('CE clean Test',ce_c_test,'CE Backdoor Test: ',ce_bd_test,'Reg Test',reg_test)
             if best_bd < bd_test_acc:
                 best_bd = bd_test_acc
                 best_dict = bd_model.state_dict()

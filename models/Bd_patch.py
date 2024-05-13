@@ -34,6 +34,7 @@ class Model(nn.Module):
         self.task_name = configs.task_name
         self.seq_len = configs.seq_len
         self.pred_len = configs.seq_len
+        self.clip_ratio = configs.clip_ratio
         padding = stride
 
         # patching and embedding
@@ -61,7 +62,7 @@ class Model(nn.Module):
                        int((configs.seq_len - patch_len) / stride + 2)
         self.head = FlattenHead(configs.enc_in, self.head_nf, configs.seq_len,
                                     head_dropout=configs.dropout)
-    def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
+    def trigger_gen(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         # Normalization from Non-stationary Transformer
         means = x_enc.mean(1, keepdim=True).detach()
         x_enc = x_enc - means
@@ -95,9 +96,9 @@ class Model(nn.Module):
         return dec_out
 
 
-    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, clip_ratio=0.1):
-        dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)[:, -self.pred_len:, :]
-        clipped = self.clipping_amp(x_enc,dec_out,clip_ratio)
+    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
+        dec_out = self.trigger_gen(x_enc, x_mark_enc, x_dec, x_mark_dec)[:, -self.pred_len:, :]
+        clipped = self.clipping_amp(x_enc,dec_out,self.clip_ratio)
         return dec_out,clipped # [B, L, D]
 
     def clipping_amp(self, x_enc, x_gen,

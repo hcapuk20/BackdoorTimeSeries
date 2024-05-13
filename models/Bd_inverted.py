@@ -15,6 +15,7 @@ class Model(nn.Module):
     def __init__(self, configs):
         super(Model, self).__init__()
         self.task_name = configs.task_name
+        self.clip_ratio = configs.clip_ratio
         self.seq_len = configs.seq_len
         self.pred_len = self.seq_len
         self.output_attention = configs.output_attention
@@ -38,7 +39,7 @@ class Model(nn.Module):
         )
         ############ latent to serie mapping d_model --> T 
         self.projection = nn.Linear(configs.d_model, self.seq_len, bias=True) ### fıx bug
-    def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
+    def trigger_gen(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         # Normalization from Non-stationary Transformer
         means = x_enc.mean(1, keepdim=True).detach()
         x_enc = x_enc - means
@@ -64,11 +65,11 @@ class Model(nn.Module):
         dec_out = dec_out + (means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
         return dec_out
 
-    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, clip_ratio=0.1):
-        dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
+    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
+        dec_out = self.trigger_gen(x_enc, x_mark_enc, x_dec, x_mark_dec)
         dec_out = dec_out[:, -self.pred_len:, :]
         #dec_out = self.th_clipping2(x_enc, dec_out)
-        clipped = self.clipping_amp(x_enc,dec_out,clip_ratio)
+        clipped = self.clipping_amp(x_enc,dec_out,self.clip_ratio)
         return dec_out,clipped  # [B, L, D]
 
     def clipping_amp(self, x_enc, x_gen,
