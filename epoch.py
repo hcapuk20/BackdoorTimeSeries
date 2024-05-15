@@ -14,6 +14,15 @@ TODO
 
 ##################### Regularizers ########################
 
+### This loss is designed to minimize the alignment on the frequency domain
+def fftreg(x_clean,x_back): # input shape B x C x T #outputshape B x C 
+    cos = nn.CosineSimilarity(dim=2, eps=1e-6)
+    xf_c = abs(torch.fft.rfft(x_clean, dim=2)) ## clean data on the freq domain
+    xf_b = abs(torch.fft.rfft(x_back, dim=2))  ## backdoored data on the freq domain
+    xf_c2 = xf_c[:,:,1:-1] ## ignore the freq 0
+    xf_b2 = xf_b[:,:,1:-1] ## ignore the freq 0
+    return cos(xf_c2,xf_b2) ##### This term can be summed or averaged #########
+
 def l2_reg(clipped_trigger, trigger):
     return torch.norm(trigger - clipped_trigger)
 
