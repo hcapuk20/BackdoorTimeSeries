@@ -1,4 +1,6 @@
 import os
+
+import numpy as np
 import torch.nn as nn
 from data_provider.data_factory import data_provider, custom_data_loader
 from models import * # Here we import the architecture
@@ -20,6 +22,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from epoch import *
 from utils.save_results import save_results
+from utils.plot import plot_time_series
 
 model_dict = {
     'TimesNet': TimesNet,
@@ -97,11 +100,7 @@ def get_clean_model(args, train_data, test_data):
 
 
 ############ Training the model
-
-
-if __name__ == '__main__':
-    # ======================================================= parse args
-    args = args_parser()
+def run(args):
     args.device = args.device if torch.cuda.is_available() else 'cpu'
     args.saveDir = 'weights/model_weights'  # path to be saved to
     # ======================================================= Initialize the model
@@ -112,8 +111,8 @@ if __name__ == '__main__':
     args.enc_in = train_data.feature_df.shape[1]
     args.num_class = len(train_data.class_names)
     #################### bd_model is the combined model ===> backdoor trigger network + surrogate classifier network
-    bd_model,surr_model = get_bd_model(args,train_data,test_data) # ===> also take data as a input
-    #since initializion of the networks requires the seq length of the data
+    bd_model, surr_model = get_bd_model(args, train_data, test_data)  # ===> also take data as a input
+    # since initializion of the networks requires the seq length of the data
     best_bd = 0
     best_dict = None
     last_dict = None
@@ -136,25 +135,25 @@ if __name__ == '__main__':
                 print('Freezing classifier')
         opt_surr = None
         ####
-        print('Starting backdoor model training...') 
+        print('Starting backdoor model training...')
         ######################################## ************************ bu kısım sankı hatalı
-        #opt_bd = torch.optim.AdamW(filter(lambda p: p.requires_grad, bd_model.parameters()), lr=args.lr)
+        # opt_bd = torch.optim.AdamW(filter(lambda p: p.requires_grad, bd_model.parameters()), lr=args.lr)
         collective_params = list(surr_model.parameters()) + list(bd_model.parameters())
         opt_bd = torch.optim.AdamW(collective_params, lr=args.lr)
         for i in tqdm(range(args.train_epochs)):
             ########### Here train the trigger while also update the surrogate classifier #########
             bd_model.train()
-            train_loss, train_dic, train_acc,bd_train_acc = epoch(bd_model,surr_model, train_loader, args, opt_bd)
+            train_loss, train_dic, train_acc, bd_train_acc = epoch(bd_model, surr_model, train_loader, args, opt_bd)
             ############################################
             bd_model.eval()
-            test_loss, test_dic,test_acc, bd_test_acc = epoch(bd_model,surr_model,test_loader, args)
-            print('Train Loss',train_loss,'Train acc',train_acc,'Test Loss',test_loss,'Test acc',test_acc)
-            print('Backdoor Train',bd_train_acc,'Backdoor Test',bd_test_acc)
-            ce_c_train,ce_c_test = np.average(train_dic['CE_c']),np.average(test_dic['CE_c'])
+            test_loss, test_dic, test_acc, bd_test_acc = epoch(bd_model, surr_model, test_loader, args)
+            print('Train Loss', train_loss, 'Train acc', train_acc, 'Test Loss', test_loss, 'Test acc', test_acc)
+            print('Backdoor Train', bd_train_acc, 'Backdoor Test', bd_test_acc)
+            ce_c_train, ce_c_test = np.average(train_dic['CE_c']), np.average(test_dic['CE_c'])
             ce_bd_train, ce_bd_test = np.average(train_dic['CE_bd']), np.average(test_dic['CE_bd'])
-            reg_train,reg_test = np.average(train_dic['reg']),np.average(test_dic['reg'])
-            print('CE clean Train',ce_c_train,'CE Backdoor train: ',ce_bd_train,'Reg Train',reg_train)
-            print('CE clean Test',ce_c_test,'CE Backdoor Test: ',ce_bd_test,'Reg Test',reg_test)
+            reg_train, reg_test = np.average(train_dic['reg']), np.average(test_dic['reg'])
+            print('CE clean Train', ce_c_train, 'CE Backdoor train: ', ce_bd_train, 'Reg Train', reg_train)
+            print('CE clean Test', ce_c_test, 'CE Backdoor Test: ', ce_bd_test, 'Reg Test', reg_test)
             if best_bd < bd_test_acc:
                 best_bd = bd_test_acc
                 best_dict = bd_model.state_dict()
@@ -162,7 +161,7 @@ if __name__ == '__main__':
                     os.makedirs('weights')
                 torch.save(bd_model.trigger.state_dict(), 'weights/best_bd_model_weights.pth')
             torch.save(bd_model.trigger.state_dict(), 'weights/last_bd_model_weights.pth')
-        #last_dict = bd_model.state_dict()
+        # last_dict = bd_model.state_dict()
 
         print('Starting clean model training with backdoor samples...')
 
@@ -191,7 +190,6 @@ if __name__ == '__main__':
     #
     # ##########################################################################################################
 
-
     clean_ratio = 1 - args.poisoning_ratio
     train_dataset, bd_dataset = torch.utils.data.random_split(train_data, [clean_ratio, args.poisoning_ratio])
     bs = int(args.batch_size * clean_ratio) + 1
@@ -204,8 +202,23 @@ if __name__ == '__main__':
 
     for i in tqdm(range(100)):
         clean_model.train()
-        train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_generator, clean_model, train_loader, bd_loader, args, optimizer)
+        train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_generator, clean_model, train_loader,
+                                                                          bd_loader, args, optimizer)
         clean_model.eval()
-        clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator,clean_model, test_loader,args)
-        print('CA:',clean_test_acc,'ASR:',bd_accuracy_test)
-    save_results(args,clean_test_acc,bd_accuracy_test)
+        clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args)
+        print('Test CA:', clean_test_acc, 'Test ASR:', bd_accuracy_test)
+
+    clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
+    return clean_test_acc, bd_accuracy_test
+
+
+if __name__ == '__main__':
+    # ======================================================= parse args
+    args = args_parser()
+    CA = []
+    ASR = []
+    for i in range(3):
+        clean_test_acc, bd_accuracy_test = run(args)
+        CA.append(clean_test_acc)
+        ASR.append(bd_accuracy_test)
+    save_results(args, np.mean(CA), np.mean(ASR))

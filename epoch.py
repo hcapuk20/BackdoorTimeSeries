@@ -6,8 +6,8 @@ import torch.nn as nn
 ################
 '''
 TODO
-- bd and clean inputs should not be concatenated
-- bd-model, separate trigger and surrogate classifier 
+- bd and clean inputs should not be concatenated (done)
+- bd-model, separate trigger and surrogate classifier (done)
 - add 2 opt backdoor epoch
 '''
 
@@ -136,7 +136,7 @@ def epoch_clean_train(bd_model,clean_model, loader,loader_bd, args,optimiser): #
     bd_accuracy = cal_accuracy(bd_predictions, backdoors.flatten().cpu().numpy())
     return total_loss, accuracy, bd_accuracy
 
-def epoch_clean_test(bd_model,clean_model, loader,args): ## for testing the backdoored clean model
+def epoch_clean_test(bd_model,clean_model, loader,args,plot=None): ## for testing the backdoored clean model
     preds = []
     bd_preds = []
     trues = []
@@ -165,6 +165,8 @@ def epoch_clean_test(bd_model,clean_model, loader,args): ## for testing the back
     trues = trues.flatten().cpu().numpy()
     clean_accuracy = cal_accuracy(predictions, trues)
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
+    if plot is not None:
+        plot(args,batch_x[0].permute(1,0),bd_batch[0].permute(1,0)) ## plot the first sample
     return clean_accuracy,bd_accuracy
 
 def clean_train(model,loader,args,optimizer): ### for warm up the surrogate classifier
