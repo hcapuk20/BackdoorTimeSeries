@@ -37,13 +37,15 @@ def mixup_forcast(x_clean, x_backdoor, y_clean, y_backdoor, alpha=2, beta=2): ##
     #### output shapes y -> B x C x L
     bs = x_clean.size(0)
     channel= x_clean.size(1)
-    time = x_clean.size(2)
+    time_y = y_clean.size(2)
+    time_x = x_clean.size(2)
     ################ We utilize a beta function to sample lamda values ##########
-    lamb = torch.tensor( np.random.beta(2, 2, bs), requires_grad=False)
-    b = (a.unsqueeze(dim=-1)).unsqueeze(dim=-1)
-    c = b.repeat(1, channel, time)
-    x_mixed = lamb * x_backdoor + (1 - lamb) * x_clean
-    y_mixed = lamb * y_backdoor + (1 - lamb) * y_clean
+    lam = torch.tensor( np.random.beta(2, 2, bs), requires_grad=False)
+    lam = (lam.unsqueeze(dim=-1)).unsqueeze(dim=-1)
+    lam_y = lam.repeat(1, channel, time_x)
+    Lam_y = lam.repeat(1, channel, time_y)
+    x_mixed = lam * x_backdoor + (1 - lam) * x_clean
+    y_mixed = lam * y_backdoor + (1 - lam) * y_clean
     return x_mixed, y_mixed
 
 
