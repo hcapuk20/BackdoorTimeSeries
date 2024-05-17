@@ -30,6 +30,25 @@ def l2_reg(clipped_trigger, trigger):
 
 ### for the set of regularizers
 
+###################### Mixup operation for input/output #################################
+
+def mixup_forcast(x_clean, x_backdoor, y_clean, y_backdoor, alpha=2, beta=2): ### this is for forcast classsification requires minor modif.
+    #### input shapes x -> B x C x T
+    #### output shapes y -> B x C x L
+    bs = x_clean.size(0)
+    channel= x_clean.size(1)
+    time = x_clean.size(2)
+    ################ We utilize a beta function to sample lamda values ##########
+    lamb = torch.tensor( np.random.beta(2, 2, bs), requires_grad=False)
+    b = (a.unsqueeze(dim=-1)).unsqueeze(dim=-1)
+    c = b.repeat(1, channel, time)
+    x_mixed = lamb * x_backdoor + (1 - lamb) * x_clean
+    y_mixed = lamb * y_backdoor + (1 - lamb) * y_clean
+    return x_mixed, y_mixed
+
+
+
+
 
 
 def cal_accuracy(y_pred, y_true):
