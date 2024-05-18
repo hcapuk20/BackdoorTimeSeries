@@ -61,6 +61,7 @@ def cal_accuracy(y_pred, y_true):
 ################################Epoch functions for training ################################################
 ### Marksman update ---> trigger and surrogate classifier are updated seperately:
 ### Trigger model used for training surrogate classifier is not updated immediately (bd_model_prev is used)
+### Since models are updated seperately we switch between eval and train
 def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=None, , opt_class=None): 
     total_loss = []
     all_preds = []
@@ -74,6 +75,7 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=N
     for i, (batch_x, label, padding_mask) in enumerate(loader):
         b_r = int(batch_x.size(0) * ratio)#### ???????????? please explain
         bd_model.zero_grad()
+        surr_model.train() ### surrogate model in train mode 
         surr_model.zero_grad()
         #### Fetch clean data
         batch_x = batch_x.float().to(args.device)
@@ -91,39 +93,22 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=N
         loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
         loss_class = loss_clean + loss_bd
         if opt_class is not None:
-           loss_class.backward()
-           opt_class.step()
+            loss_class.backward()
+            opt_class.step()
         ###########  Train trigger classifier with updated surrogate classifier (eval mode) #####################
+        surr_model.eval() ### surrogate model in eval mode
         trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None) # trigger with active model
-            clean_pred = surr_model(batch_x, padding_mask,None,None)
-            bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
-            loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
-            loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
-            loss_reg = l2_reg(trigger_clip, trigger)
-            loss = loss_clean + loss_bd + loss_reg
-            loss_dict['CE_c'].append(loss_clean.item())
-            loss_dict['CE_bd'].append(loss_bd.item())
-            loss_dict['reg'].append(loss.item())
-            total_loss.append(loss.item())
-            all_preds.append(clean_pred)
-            bd_preds.append(bd_pred)
-            trues.append(label)
-            bds.append(bd_labels)
-            if opt is not None:
-                loss.backward()
-                opt.step()
-    total_loss = np.average(total_loss)
-    all_preds = torch.cat(all_preds, 0)
-    bd_preds = torch.cat(bd_preds, 0)
-    trues = torch.cat(trues, 0)
-    bd_labels = torch.cat(bds, 0)
-    probs = torch.nn.functional.softmax(
-        all_preds)  # (total_samples, num_classes) est. prob. for each class and sample
-    predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
-    bd_predictions = torch.argmax(torch.nn.functional.softmax(bd_preds), dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
-    trues = trues.flatten().cpu().numpy()
-    accuracy = cal_accuracy(predictions, trues)
-    bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
+        bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None) # surrogate classifier in eval mode
+        loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
+        loss_reg = l2_reg(trigger_clip, trigger) ### here we also reqularizer loss
+        loss_trig = loss_bd + loss_reg
+        if opt is not None:
+            loss_trig.backward()
+            opt_trig.step()
+        #### With a certain period we synchronize bd_model and bd_model_prev
+        if i % 5
+          #### here move bd_model to bd_model_prev 
+          #### 5 will be a parameter and we may consider syncronisation even at the end of epoch
     return total_loss,loss_dict, accuracy,bd_accuracy
 
 
