@@ -61,6 +61,7 @@ def mixup_class(x_clean, x_backdoor, alpha=2, beta=2): ### classification task
     lam = torch.tensor( np.random.beta(2, 2, bs), requires_grad=False)
     lam_x = (lam.unsqueeze(dim=-1)).unsqueeze(dim=-1)
     lam_x = lam_x.repeat(1, channel, time_x)
+    x_mixed = lam_x * x_backdoor + (1 - lam_x) * x_clean
     return x_mixed, lam # we output lam as well to be used weight loss terms
     ####################### end of mixup #########################################
 
@@ -116,6 +117,62 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=N
         loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
         loss_reg = l2_reg(trigger_clip, trigger) ### here we also reqularizer loss
         loss_trig = loss_bd + loss_reg
+        if opt is not None:
+            loss_trig.backward()
+            opt_trig.step()
+        #### With a certain period we synchronize bd_model and bd_model_prev
+        if i % 5
+          #### here move bd_model to bd_model_prev 
+          #### 5 will be a parameter and we may consider syncronisation even at the end of epoch
+    return total_loss,loss_dict, accuracy,bd_accuracy
+        
+### Marksman update with mixup framework ---> trigger and surrogate classifier are updated seperately:
+### Trigger model used for training surrogate classifier is not updated immediately (bd_model_prev is used)
+### Since models are updated seperately we switch between eval and train
+### In this version of Marksman update we utilize mixup framework for backdoor training in order to mitigate simple triggers
+def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=None, opt_class=None): 
+    total_loss = []
+    all_preds = []
+    bd_preds = []
+    trues = []
+    bds = []
+    bd_label = args.target_label
+    loss_dict = {'CE_c':[],'CE_bd':[],'reg':[]}
+    ratio = args.poisoning_ratio_train
+    bd_model_prev.eval() ## ----> trigger gnerator for classifier is in evaluation mode
+    for i, (batch_x, label, padding_mask) in enumerate(loader):
+        b_r = int(batch_x.size(0) * ratio)#### ???????????? please explain
+        bd_model.zero_grad()
+        surr_model.train() ### surrogate model in train mode 
+        surr_model.zero_grad()
+        #### Fetch clean data
+        batch_x = batch_x.float().to(args.device)
+        #### Fetch mask (for forecast task)
+        padding_mask = padding_mask.float().to(args.device)
+        #### Fetch labels
+        label = label.to(args.device)
+        #### Generate backdoor labels ####### so far we focus on fixed target scenario
+        bd_labels = torch.ones_like(label).to(args.device) * bd_label ## comes from argument
+        ########### First train surrogate classifier with frozen trigger #####################
+        trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None) # generate trigger with frozen model
+        clean_pred = surr_model(batch_x, padding_mask,None,None)
+        bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
+        loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
+        loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
+        loss_class = loss_clean + loss_bd
+        if opt_class is not None:
+            loss_class.backward()
+            opt_class.step()
+        ###########  Train trigger classifier with updated surrogate classifier (eval mode) #####################
+        surr_model.eval() ### surrogate model in eval mode
+        trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None) # trigger with active model
+        batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip, alpha=2, beta=2) # generate mix_batch
+        bd_pred = surr_model(batch_mix, padding_mask,None,None) # surrogate classifier in eval mode
+        ######## here we combine two loss one for each label 
+        loss_bd = args.args.criterion_mix(bd_pred, bd_labels.long().squeeze(-1)) # output size of batch
+        loss_clean = args.args.criterion_mix(bd_pred, label.long().squeeze(-1)) # output size of batch
+        #loss_reg = l2_reg(trigger_clip, trigger) ### here we also reqularizer loss
+        loss_trig = torch.sum(loss_bd * scale_weights + loss_clean * (1-scale_weights)) ## sum loss can be converted to average
         if opt is not None:
             loss_trig.backward()
             opt_trig.step()
