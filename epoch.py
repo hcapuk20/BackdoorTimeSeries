@@ -11,7 +11,8 @@ TODO
 - add 2 opt backdoor epoch
 '''
 ################# Related works with Code #############
-#Dynamic input-aware https://github.com/VinAIResearch/input-aware-backdoor-attack-release/blob/master/train.py
+# Dynamic input-aware https://github.com/VinAIResearch/input-aware-backdoor-attack-release/blob/master/train.py
+# Label smoothing for backdoor -->> https://arxiv.org/pdf/2202.11203
 
 ##################### Regularizers ########################
 
