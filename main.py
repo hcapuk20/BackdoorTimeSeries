@@ -120,6 +120,8 @@ def run(args):
     # ============================================================================
     # ===== Add loss criterion to the args =====
     args.criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smooth)
+    ######### The loss term for utilizing mixup 
+    #args.criterion_mix = nn.CrossEntropyLoss( reduce = False) # in order to have batch-wise results rather than sum or average
     # ===== Add optimizer to the args =====
     if args.load_bd_model is None:
         ### Experimental
