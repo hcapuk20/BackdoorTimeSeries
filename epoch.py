@@ -63,7 +63,7 @@ def cal_accuracy(y_pred, y_true):
 ### Marksman update ---> trigger and surrogate classifier are updated seperately:
 ### Trigger model used for training surrogate classifier is not updated immediately (bd_model_prev is used)
 ### Since models are updated seperately we switch between eval and train
-def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=None, , opt_class=None): 
+def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=None, opt_class=None): 
     total_loss = []
     all_preds = []
     bd_preds = []
