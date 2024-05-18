@@ -34,7 +34,7 @@ def l2_reg(clipped_trigger, trigger):
 
 ###################### Mixup operation for input/output #################################
 
-def mixup_forcast(x_clean, x_backdoor, y_clean, y_backdoor, alpha=2, beta=2): ### this is for forcast classsification requires minor modif.
+def mixup_forcast(x_clean, x_backdoor, y_clean, y_backdoor, alpha=2, beta=2): ### forecast task
     #### input shapes x -> B x C x T
     #### output shapes y -> B x C x L
     bs = x_clean.size(0)
@@ -49,7 +49,20 @@ def mixup_forcast(x_clean, x_backdoor, y_clean, y_backdoor, alpha=2, beta=2): ##
     x_mixed = lam_x * x_backdoor + (1 - lam_x) * x_clean
     y_mixed = lam_y * y_backdoor + (1 - lam_y) * y_clean
     return x_mixed, y_mixed
-
+def mixup_class(x_clean, x_backdoor, alpha=2, beta=2): ### classification task
+    ### Following the framework in 
+    ### https://github.com/facebookresearch/mixup-cifar10/blob/main/train.py
+    ### Instead  of label mixing we compute loss for each loss and take weighted avg of loss (wrt lam)
+    #### input shapes x -> B x C x T
+    bs = x_clean.size(0)
+    channel= x_clean.size(1)
+    time_x = x_clean.size(2)
+    ################ We utilize a beta function to sample lamda values ##########
+    lam = torch.tensor( np.random.beta(2, 2, bs), requires_grad=False)
+    lam_x = (lam.unsqueeze(dim=-1)).unsqueeze(dim=-1)
+    lam_x = lam_x.repeat(1, channel, time_x)
+    return x_mixed, lam # we output lam as well to be used weight loss terms
+    ####################### end of mixup #########################################
 
 
 
