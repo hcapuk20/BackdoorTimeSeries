@@ -61,7 +61,7 @@ def cal_accuracy(y_pred, y_true):
 ################################Epoch functions for training ################################################
 ### Marksman update ---> trigger and surrogate classifier are updated seperately:
 ### Trigger model used for training surrogate classifier is not updated immediately (bd_model_prev is used)
-def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt=None): 
+def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=None, , opt_class=None): 
     total_loss = []
     all_preds = []
     bd_preds = []
@@ -70,22 +70,31 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt=None):
     bd_label = args.target_label
     loss_dict = {'CE_c':[],'CE_bd':[],'reg':[]}
     ratio = args.poisoning_ratio_train
-    bd_model_prev.eval() ## ----> trigger is in evaluation mode
+    bd_model_prev.eval() ## ----> trigger gnerator for classifier is in evaluation mode
     for i, (batch_x, label, padding_mask) in enumerate(loader):
-        b_r = int(batch_x.size(0) * ratio)
+        b_r = int(batch_x.size(0) * ratio)#### ???????????? please explain
         bd_model.zero_grad()
-            surr_model.zero_grad()
-            #### Fetch clean data
-            batch_x = batch_x.float().to(args.device)
-            #### Fetch mask (for forecast task)
-            padding_mask = padding_mask.float().to(args.device)
-            #### Fetch labels
-            label = label.to(args.device)
-            #### Generate backdoor labels ####### so far we focus on fixed target scenario
-            bd_labels = torch.ones_like(label).to(args.device) * bd_label ## comes from argument
-            #### Combine true and target labels
-            ########### Here we generate trigger #####################
-            trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None)
+        surr_model.zero_grad()
+        #### Fetch clean data
+        batch_x = batch_x.float().to(args.device)
+        #### Fetch mask (for forecast task)
+        padding_mask = padding_mask.float().to(args.device)
+        #### Fetch labels
+        label = label.to(args.device)
+        #### Generate backdoor labels ####### so far we focus on fixed target scenario
+        bd_labels = torch.ones_like(label).to(args.device) * bd_label ## comes from argument
+        ########### First train surrogate classifier with frozen trigger #####################
+        trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None) # generate trigger with frozen model
+        clean_pred = surr_model(batch_x, padding_mask,None,None)
+        bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
+        loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
+        loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
+        loss_class = loss_clean + loss_bd
+        if opt_class is not None:
+           loss_class.backward()
+           opt_class.step()
+        ###########  Train trigger classifier with updated surrogate classifier (eval mode) #####################
+        trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None) # trigger with active model
             clean_pred = surr_model(batch_x, padding_mask,None,None)
             bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
             loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
