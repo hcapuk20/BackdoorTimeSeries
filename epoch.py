@@ -121,7 +121,7 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=N
             loss_trig.backward()
             opt_trig.step()
         #### With a certain period we synchronize bd_model and bd_model_prev
-        if i % 5
+        if i % 5 ==0: #deep_copy model
           #### here move bd_model to bd_model_prev 
           #### 5 will be a parameter and we may consider syncronisation even at the end of epoch
     return total_loss,loss_dict, accuracy,bd_accuracy
@@ -171,13 +171,13 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
         ######## here we combine two loss one for each label 
         loss_bd = args.args.criterion_mix(bd_pred, bd_labels.long().squeeze(-1)) # output size of batch
         loss_clean = args.args.criterion_mix(bd_pred, label.long().squeeze(-1)) # output size of batch
-        #loss_reg = l2_reg(trigger_clip, trigger) ### here we also reqularizer loss
+        #loss_reg = l2_reg(trigger_clip, trigger) ### We can use regularizer loss as well
         loss_trig = torch.sum(loss_bd * scale_weights + loss_clean * (1-scale_weights)) ## sum loss can be converted to average
         if opt is not None:
             loss_trig.backward()
             opt_trig.step()
         #### With a certain period we synchronize bd_model and bd_model_prev
-        if i % 5
+        if i % 5 == 0: #deep_copy model
           #### here move bd_model to bd_model_prev 
           #### 5 will be a parameter and we may consider syncronisation even at the end of epoch
     return total_loss,loss_dict, accuracy,bd_accuracy
