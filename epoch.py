@@ -115,7 +115,7 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=N
         trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None) # trigger with active model
         bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None) # surrogate classifier in eval mode
         loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
-        loss_reg = l2_reg(trigger_clip, trigger) ### here we also reqularizer loss
+        loss_reg = l2_reg(trigger_clip, trigger) ### here we also utilize reqularizer loss
         loss_trig = loss_bd + loss_reg
         if opt is not None:
             loss_trig.backward()
