@@ -121,8 +121,9 @@ def run(args):
     # ===== Add loss criterion to the args =====
     args.criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smooth)
     ######### The loss term for utilizing mixup 
-    #args.criterion_mix = nn.CrossEntropyLoss( reduce = False) # in order to have batch-wise results rather than sum or average
+    args.criterion_mix = nn.CrossEntropyLoss(reduce=False) # in order to have batch-wise results rather than sum or average
     # ===== Add optimizer to the args =====
+    opt_surr = None
     if args.load_bd_model is None:
         ### Experimental
         if args.warm_up:
@@ -135,13 +136,16 @@ def run(args):
             if args.freeze_surrogate:
                 bd_model.freeze_classifier()
                 print('Freezing classifier')
-        opt_surr = None
         ####
         print('Starting backdoor model training...')
         ######################################## ************************ bu kısım sankı hatalı
         # opt_bd = torch.optim.AdamW(filter(lambda p: p.requires_grad, bd_model.parameters()), lr=args.lr)
-        collective_params = list(surr_model.parameters()) + list(bd_model.parameters())
-        opt_bd = torch.optim.AdamW(collective_params, lr=args.lr)
+        if args.seperate_opts:
+            opt_bd = torch.optim.AdamW(bd_model.trigger.parameters(), lr=args.lr)
+            opt_surr = torch.optim.AdamW(surr_model.parameters(), lr=args.lr)
+        else:
+            collective_params = list(surr_model.parameters()) + list(bd_model.parameters())
+            opt_bd = torch.optim.AdamW(collective_params, lr=args.lr)
         for i in tqdm(range(args.train_epochs)):
             ########### Here train the trigger while also update the surrogate classifier #########
             bd_model.train()
@@ -177,7 +181,7 @@ def run(args):
         bd_generator = bd_model.trigger
         bd_generator.load_state_dict(dicts)
 
-    bd_generator.eval()
+
 
     # ################Clean Model tranining for  testing the model without attacks##############################
     # for i in range(30):
@@ -192,6 +196,8 @@ def run(args):
     #
     # ##########################################################################################################
 
+    #### START OF THE NEW TRANING WITH TRAINED TRIGGER GENERATOR
+    bd_generator.eval()
     clean_ratio = 1 - args.poisoning_ratio
     train_dataset, bd_dataset = torch.utils.data.random_split(train_data, [clean_ratio, args.poisoning_ratio])
     bs = int(args.batch_size * clean_ratio) + 1
@@ -204,13 +210,15 @@ def run(args):
 
     for i in tqdm(range(100)):
         clean_model.train()
+        ### Train epoch with clean data and backdoor datasets.
         train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_generator, clean_model, train_loader,
                                                                           bd_loader, args, optimizer)
         clean_model.eval()
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args)
         print('Test CA:', clean_test_acc, 'Test ASR:', bd_accuracy_test)
 
-    clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
+    if args.root_path.split('/')[-2] != 'UWaveGestureLibrary':
+        clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
     return clean_test_acc, bd_accuracy_test
 
 

@@ -22,7 +22,10 @@ def plot_time_series(args,data, bd):
     fig, axs = plt.subplots(sqrt_b, sqrt_b)
 
     # Flatten the axs array for easy iteration
-    axs = axs.flatten()
+    try:
+        axs = axs.flatten()
+    except:
+        axs = axs
 
     # Plot each time series in a separate subplot
     for i in range(max_variates):
@@ -35,4 +38,4 @@ def plot_time_series(args,data, bd):
     dataset = args.root_path.split('/')[-2]
     m = args.bd_model
     plt.savefig('trigger_figs/trigger_plot_{}-T_{}-{}.png'.format(dataset,m,random.randint(0,1000)))
-    plt.show()
+    #plt.show()

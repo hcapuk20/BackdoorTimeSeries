@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import torch.nn as nn
-
+from utils.model_ops import *
 
 ################
 '''
@@ -117,19 +117,33 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=N
         loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
         loss_reg = l2_reg(trigger_clip, trigger) ### here we also utilize reqularizer loss
         loss_trig = loss_bd + loss_reg
-        if opt is not None:
+        if opt_trig is not None:
             loss_trig.backward()
             opt_trig.step()
         #### With a certain period we synchronize bd_model and bd_model_prev
         if i % 5 ==0: #deep_copy model
-          #### here move bd_model to bd_model_prev 
-          #### 5 will be a parameter and we may consider syncronisation even at the end of epoch
+            pull_model(bd_model_prev,bd_model)#### here move bd_model to bd_model_prev
+            #### 5 will be a parameter and we may consider syncronisation even at the end of epoch
+    total_loss = np.average(total_loss)
+    all_preds = torch.cat(all_preds, 0)
+    bd_preds = torch.cat(bd_preds, 0)
+    trues = torch.cat(trues, 0)
+    bd_labels = torch.cat(bds, 0)
+    probs = torch.nn.functional.softmax(
+        all_preds)  # (total_samples, num_classes) est. prob. for each class and sample
+    predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    bd_predictions = torch.argmax(torch.nn.functional.softmax(bd_preds),
+                                  dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    trues = trues.flatten().cpu().numpy()
+    accuracy = cal_accuracy(predictions, trues)
+    bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     return total_loss,loss_dict, accuracy,bd_accuracy
         
 ### Marksman update with mixup framework ---> trigger and surrogate classifier are updated seperately:
 ### Trigger model used for training surrogate classifier is not updated immediately (bd_model_prev is used)
 ### Since models are updated seperately we switch between eval and train
 ### In this version of Marksman update we utilize mixup framework for backdoor training in order to mitigate simple triggers
+
 def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=None, opt_class=None): 
     total_loss = []
     all_preds = []
@@ -169,17 +183,30 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
         batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip, alpha=2, beta=2) # generate mix_batch
         bd_pred = surr_model(batch_mix, padding_mask,None,None) # surrogate classifier in eval mode
         ######## here we combine two loss one for each label 
-        loss_bd = args.args.criterion_mix(bd_pred, bd_labels.long().squeeze(-1)) # output size of batch
-        loss_clean = args.args.criterion_mix(bd_pred, label.long().squeeze(-1)) # output size of batch
+        loss_bd = args.criterion_mix(bd_pred, bd_labels.long().squeeze(-1)) # output size of batch
+        loss_clean = args.criterion_mix(bd_pred, label.long().squeeze(-1)) # output size of batch
         #loss_reg = l2_reg(trigger_clip, trigger) ### We can use regularizer loss as well
-        loss_trig = torch.sum(loss_bd * scale_weights + loss_clean * (1-scale_weights)) ## sum loss can be converted to average
-        if opt is not None:
+        loss_trig = torch.mean(loss_bd * scale_weights + loss_clean * (1-scale_weights)) ## sum loss can be converted to average
+        if opt_trig is not None:
             loss_trig.backward()
             opt_trig.step()
         #### With a certain period we synchronize bd_model and bd_model_prev
-        if i % 5 == 0: #deep_copy model
-          #### here move bd_model to bd_model_prev 
-          #### 5 will be a parameter and we may consider syncronisation even at the end of epoch
+        if i % 5 ==0: #deep_copy model
+            pull_model(bd_model_prev,bd_model)#### here move bd_model to bd_model_prev
+            #### 5 will be a parameter and we may consider syncronisation even at the end of epoch
+    total_loss = np.average(total_loss)
+    all_preds = torch.cat(all_preds, 0)
+    bd_preds = torch.cat(bd_preds, 0)
+    trues = torch.cat(trues, 0)
+    bd_labels = torch.cat(bds, 0)
+    probs = torch.nn.functional.softmax(
+        all_preds)  # (total_samples, num_classes) est. prob. for each class and sample
+    predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    bd_predictions = torch.argmax(torch.nn.functional.softmax(bd_preds),
+                                  dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    trues = trues.flatten().cpu().numpy()
+    accuracy = cal_accuracy(predictions, trues)
+    bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     return total_loss,loss_dict, accuracy,bd_accuracy
 
 
@@ -189,7 +216,7 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
 
 
 
-def epoch(bd_model,surr_model, loader, args, opt=None): ##### The main training module
+def epoch(bd_model,surr_model, loader, args, opt=None,opt2=None): ##### The main training module
     total_loss = []
     all_preds = []
     bd_preds = []
@@ -218,10 +245,11 @@ def epoch(bd_model,surr_model, loader, args, opt=None): ##### The main training 
             loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
             loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
             loss_reg = l2_reg(trigger_clip, trigger)
+            loss_reg += fftreg(batch_x, batch_x + trigger_clip) ### we can add fft reg for extra regularizer
             loss = loss_clean + loss_bd + loss_reg
             loss_dict['CE_c'].append(loss_clean.item())
             loss_dict['CE_bd'].append(loss_bd.item())
-            loss_dict['reg'].append(loss.item())
+            loss_dict['reg'].append(loss_reg.item())
             total_loss.append(loss.item())
             all_preds.append(clean_pred)
             bd_preds.append(bd_pred)
@@ -230,6 +258,8 @@ def epoch(bd_model,surr_model, loader, args, opt=None): ##### The main training 
             if opt is not None:
                 loss.backward()
                 opt.step()
+            if opt2 is not None:
+                opt2.step()
     total_loss = np.average(total_loss)
     all_preds = torch.cat(all_preds, 0)
     bd_preds = torch.cat(bd_preds, 0)
@@ -381,12 +411,3 @@ def clean_test(model,loader,args): ### test CA without poisoining the model
     trues = trues.flatten().cpu().numpy()
     accuracy = cal_accuracy(predictions, trues)
     return total_loss, accuracy
-
-
-def get_grad_flattened(model, device):
-    grad_flattened = torch.empty(0).to(device)
-    for p in model.parameters():
-        if p.requires_grad:
-            a = p.grad.data.flatten().to(device)
-            grad_flattened = torch.cat((grad_flattened, a), 0)
-    return grad_flattened
