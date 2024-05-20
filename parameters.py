@@ -9,6 +9,7 @@ def args_parser():
     parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
     parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
     parser.add_argument('--poisoning_ratio', type=float, default=0.1, help='Poisoning ratio')
+    parser.add_argument('--separate_opts', type=bool, default=False, help='Use seperate optimizers for surrogate and trigger generator')
     parser.add_argument('--poisoning_ratio_train', type=float, default=1, help='Poisoning ratio of the batch in the trining phase')
     parser.add_argument('--clip_ratio', type=float, default=0.1, help='Poisoning ratio')
     parser.add_argument('--target_label', type=int, default=0, help='targeted label')

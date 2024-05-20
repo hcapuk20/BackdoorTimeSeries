@@ -140,7 +140,7 @@ def run(args):
         print('Starting backdoor model training...')
         ######################################## ************************ bu kısım sankı hatalı
         # opt_bd = torch.optim.AdamW(filter(lambda p: p.requires_grad, bd_model.parameters()), lr=args.lr)
-        if args.seperate_opts:
+        if args.separate_opts:
             opt_bd = torch.optim.AdamW(bd_model.trigger.parameters(), lr=args.lr)
             opt_surr = torch.optim.AdamW(surr_model.parameters(), lr=args.lr)
         else:
