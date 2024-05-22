@@ -23,10 +23,21 @@ def fftreg(x_clean,x_back): # input shape B x C x T #outputshape B x C
     xf_b = abs(torch.fft.rfft(x_back, dim=2))  ## backdoored data on the freq domain
     xf_c2 = xf_c[:,:,1:-1] ## ignore the freq 0
     xf_b2 = xf_b[:,:,1:-1] ## ignore the freq 0
-    return cos(xf_c2,xf_b2) ##### This term can be summed or averaged #########
+    return cos(xf_c2,xf_b2).mean() ##### This term can be summed or averaged #########
 
 def l2_reg(clipped_trigger, trigger):
     return torch.norm(trigger - clipped_trigger)
+
+def reg_loss(x_clean,trigger,trigger_clip,args):
+    l2_loss = 0
+    cos_loss = 0
+    if args.L2_reg:
+        l2_loss = l2_reg(trigger_clip,trigger)
+    if args.cos_reg:
+        cos_loss = fftreg(x_clean,x_clean+trigger_clip)
+    reg_total = l2_loss + cos_loss
+    if reg_total > 0:
+        return reg_total
 
 
 
@@ -58,11 +69,11 @@ def mixup_class(x_clean, x_backdoor, alpha=2, beta=2): ### classification task
     channel= x_clean.size(1)
     time_x = x_clean.size(2)
     ################ We utilize a beta function to sample lamda values ##########
-    lam = torch.tensor( np.random.beta(2, 2, bs), requires_grad=False)
+    lam = torch.tensor( np.random.beta(2, 2, bs), requires_grad=False).to(x_clean.device).float()
     lam_x = (lam.unsqueeze(dim=-1)).unsqueeze(dim=-1)
     lam_x = lam_x.repeat(1, channel, time_x)
     x_mixed = lam_x * x_backdoor + (1 - lam_x) * x_clean
-    return x_mixed, lam # we output lam as well to be used weight loss terms
+    return x_mixed.float(), lam # we output lam as well to be used weight loss terms
     ####################### end of mixup #########################################
 
 
@@ -77,7 +88,7 @@ def cal_accuracy(y_pred, y_true):
 ### Marksman update ---> trigger and surrogate classifier are updated seperately:
 ### Trigger model used for training surrogate classifier is not updated immediately (bd_model_prev is used)
 ### Since models are updated seperately we switch between eval and train
-def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=None, opt_class=None): 
+def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=None, opt_class=None,train=True):
     total_loss = []
     all_preds = []
     bd_preds = []
@@ -87,8 +98,13 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=N
     loss_dict = {'CE_c':[],'CE_bd':[],'reg':[]}
     ratio = args.poisoning_ratio_train
     bd_model_prev.eval() ## ----> trigger gnerator for classifier is in evaluation mode
+    if train:
+        surr_model.train()
+        bd_model.train()
+    else:
+        surr_model.eval()
+        bd_model.eval()
     for i, (batch_x, label, padding_mask) in enumerate(loader):
-        b_r = int(batch_x.size(0) * ratio)#### ???????????? please explain
         bd_model.zero_grad()
         surr_model.train() ### surrogate model in train mode 
         surr_model.zero_grad()
@@ -117,6 +133,14 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=N
         loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
         loss_reg = l2_reg(trigger_clip, trigger) ### here we also utilize reqularizer loss
         loss_trig = loss_bd + loss_reg
+        total_loss.append(loss_trig.item() + loss_class.item())
+        all_preds.append(clean_pred)
+        bd_preds.append(bd_pred)
+        trues.append(label)
+        bds.append(bd_labels)
+        loss_dict['CE_c'].append(loss_class.item())
+        loss_dict['CE_bd'].append(loss_bd.item())
+        loss_dict['reg'].append(loss_reg.item())
         if opt_trig is not None:
             loss_trig.backward()
             opt_trig.step()
@@ -144,7 +168,7 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=N
 ### Since models are updated seperately we switch between eval and train
 ### In this version of Marksman update we utilize mixup framework for backdoor training in order to mitigate simple triggers
 
-def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=None, opt_class=None): 
+def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=None, opt_class=None,train=True):
     total_loss = []
     all_preds = []
     bd_preds = []
@@ -154,6 +178,12 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
     loss_dict = {'CE_c':[],'CE_bd':[],'reg':[]}
     ratio = args.poisoning_ratio_train
     bd_model_prev.eval() ## ----> trigger gnerator for classifier is in evaluation mode
+    if train:
+        surr_model.train()
+        bd_model.train()
+    else:
+        surr_model.eval()
+        bd_model.eval()
     for i, (batch_x, label, padding_mask) in enumerate(loader):
         b_r = int(batch_x.size(0) * ratio)#### ???????????? please explain
         bd_model.zero_grad()
@@ -174,6 +204,13 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
         loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
         loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
         loss_class = loss_clean + loss_bd
+        total_loss.append(loss_class.item())
+        all_preds.append(clean_pred)
+        bd_preds.append(bd_pred)
+        trues.append(label)
+        bds.append(bd_labels)
+        loss_dict['CE_c'].append(loss_class.item())
+        loss_dict['CE_bd'].append(loss_bd.item())
         if opt_class is not None:
             loss_class.backward()
             opt_class.step()
@@ -186,7 +223,11 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
         loss_bd = args.criterion_mix(bd_pred, bd_labels.long().squeeze(-1)) # output size of batch
         loss_clean = args.criterion_mix(bd_pred, label.long().squeeze(-1)) # output size of batch
         #loss_reg = l2_reg(trigger_clip, trigger) ### We can use regularizer loss as well
+        loss_reg = reg_loss(batch_x,trigger,trigger_clip,args) ### We can use regularizer loss as well
         loss_trig = torch.mean(loss_bd * scale_weights + loss_clean * (1-scale_weights)) ## sum loss can be converted to average
+        if loss_reg is not None:
+            loss_trig += loss_reg
+            loss_dict['reg'].append(loss_reg.item())
         if opt_trig is not None:
             loss_trig.backward()
             opt_trig.step()
@@ -216,7 +257,7 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
 
 
 
-def epoch(bd_model,surr_model, loader, args, opt=None,opt2=None): ##### The main training module
+def epoch(bd_model,surr_model, loader, args, opt=None,opt2=None,train=True): ##### The main training module
     total_loss = []
     all_preds = []
     bd_preds = []
@@ -225,6 +266,12 @@ def epoch(bd_model,surr_model, loader, args, opt=None,opt2=None): ##### The main
     bd_label = args.target_label
     loss_dict = {'CE_c':[],'CE_bd':[],'reg':[]}
     ratio = args.poisoning_ratio_train
+    if train:
+        surr_model.train()
+        bd_model.train()
+    else:
+        surr_model.eval()
+        bd_model.eval()
     for i, (batch_x, label, padding_mask) in enumerate(loader):
             b_r = int(batch_x.size(0) * ratio)
             bd_model.zero_grad()

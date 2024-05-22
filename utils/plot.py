@@ -34,8 +34,9 @@ def plot_time_series(args,data, bd):
 
     # Show the plot
     plt.tight_layout()
+    desig = args.sim_id
     plt.legend()
     dataset = args.root_path.split('/')[-2]
     m = args.bd_model
-    plt.savefig('trigger_figs/trigger_plot_{}-T_{}-{}.png'.format(dataset,m,random.randint(0,1000)))
+    plt.savefig('trigger_figs/trigger_plot_{}-T_{}-{}-{}.png'.format(dataset,m,desig,random.randint(0,100)))
     #plt.show()

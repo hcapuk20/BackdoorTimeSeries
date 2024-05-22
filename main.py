@@ -1,5 +1,5 @@
 import os
-
+import random
 import numpy as np
 import torch.nn as nn
 from data_provider.data_factory import data_provider, custom_data_loader
@@ -23,6 +23,7 @@ from tqdm import tqdm
 from epoch import *
 from utils.save_results import save_results
 from utils.plot import plot_time_series
+from copy import deepcopy
 
 model_dict = {
     'TimesNet': TimesNet,
@@ -112,6 +113,7 @@ def run(args):
     args.num_class = len(train_data.class_names)
     #################### bd_model is the combined model ===> backdoor trigger network + surrogate classifier network
     bd_model, surr_model = get_bd_model(args, train_data, test_data)  # ===> also take data as a input
+    bd_model_prev = deepcopy(bd_model)
     # since initializion of the networks requires the seq length of the data
     best_bd = 0
     best_dict = None
@@ -140,7 +142,7 @@ def run(args):
         print('Starting backdoor model training...')
         ######################################## ************************ bu kısım sankı hatalı
         # opt_bd = torch.optim.AdamW(filter(lambda p: p.requires_grad, bd_model.parameters()), lr=args.lr)
-        if args.separate_opts:
+        if args.train_mode != 'basic':
             opt_bd = torch.optim.AdamW(bd_model.trigger.parameters(), lr=args.lr)
             opt_surr = torch.optim.AdamW(surr_model.parameters(), lr=args.lr)
         else:
@@ -148,11 +150,21 @@ def run(args):
             opt_bd = torch.optim.AdamW(collective_params, lr=args.lr)
         for i in tqdm(range(args.train_epochs)):
             ########### Here train the trigger while also update the surrogate classifier #########
-            bd_model.train()
-            train_loss, train_dic, train_acc, bd_train_acc = epoch(bd_model, surr_model, train_loader, args, opt_bd)
-            ############################################
-            bd_model.eval()
-            test_loss, test_dic, test_acc, bd_test_acc = epoch(bd_model, surr_model, test_loader, args)
+            if args.train_mode == 'basic':
+                train_loss, train_dic, train_acc, bd_train_acc = epoch(bd_model, surr_model, train_loader, args, opt_bd,None)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch(bd_model, surr_model, test_loader, args,train=False)
+            elif args.train_mode == '2opt':
+                train_loss, train_dic, train_acc, bd_train_acc = epoch(bd_model, surr_model, train_loader, args, opt_bd, opt_surr)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch(bd_model, surr_model, test_loader, args,train=False)
+            elif args.train_mode == 'marksman':
+                train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman(bd_model,bd_model_prev ,surr_model, train_loader, args, opt_bd, opt_surr)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman(bd_model,bd_model_prev, surr_model, test_loader, args,train=False)
+            elif args.train_mode == 'marksman_lam':
+                train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_lam(bd_model, bd_model_prev, surr_model,
+                                                                                train_loader, args, opt_bd, opt_surr)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_lam(bd_model, bd_model_prev, surr_model,
+                                                                            test_loader, args, train=False)
+                ############################################
             print('Train Loss', train_loss, 'Train acc', train_acc, 'Test Loss', test_loss, 'Test acc', test_acc)
             print('Backdoor Train', bd_train_acc, 'Backdoor Test', bd_test_acc)
             ce_c_train, ce_c_test = np.average(train_dic['CE_c']), np.average(test_dic['CE_c'])
@@ -160,7 +172,7 @@ def run(args):
             reg_train, reg_test = np.average(train_dic['reg']), np.average(test_dic['reg'])
             print('CE clean Train', ce_c_train, 'CE Backdoor train: ', ce_bd_train, 'Reg Train', reg_train)
             print('CE clean Test', ce_c_test, 'CE Backdoor Test: ', ce_bd_test, 'Reg Test', reg_test)
-            if best_bd < bd_test_acc:
+            if best_bd <= bd_test_acc:
                 best_bd = bd_test_acc
                 best_dict = bd_model.state_dict()
                 if not os.path.exists('weights'):
@@ -219,7 +231,7 @@ def run(args):
 
     if args.root_path.split('/')[-2] != 'UWaveGestureLibrary':
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
-    return clean_test_acc, bd_accuracy_test
+    return clean_test_acc, bd_accuracy_test,bd_generator
 
 
 if __name__ == '__main__':
@@ -227,8 +239,15 @@ if __name__ == '__main__':
     args = args_parser()
     CA = []
     ASR = []
+    args.sim_id = random.randint(1,9999)
+    best_overall = 0
+    best_bd_model = None
     for i in range(3):
-        clean_test_acc, bd_accuracy_test = run(args)
+        clean_test_acc, bd_accuracy_test,bd_generator = run(args)
         CA.append(clean_test_acc)
         ASR.append(bd_accuracy_test)
-    save_results(args, np.mean(CA), np.mean(ASR))
+        overall_acc = 0.45 * clean_test_acc + 0.55 * bd_accuracy_test
+        if overall_acc > best_overall:
+            best_overall = overall_acc
+            best_bd_model = bd_generator
+    save_results(args, np.mean(CA), np.mean(ASR),np.std(CA),np.std(ASR),best_bd_model)

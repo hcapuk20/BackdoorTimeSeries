@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import os
 import random
 
+import torch
+
 
 def log(path,args,sim_id):
     n_path = path
@@ -18,8 +20,8 @@ def log(path,args,sim_id):
     f.close()
 
 
-def save_results(args,ca,asr):
-    sim_id = random.randint(1,9999)
+def save_results(args,ca,asr,ca_std,asr_std,model):
+    sim_id = args.sim_id
     dataset = args.root_path.split('/')[-1]
     if len(dataset) < 2:
         dataset = args.root_path.split('/')[-2]
@@ -32,6 +34,9 @@ def save_results(args,ca,asr):
     log(path,args,sim_id),
     f = open(path + '/log.txt', 'a')
     f.write('CA : {}'.format(ca) + '\n')
-    f.write('asr : {}'.format(asr) + '\n')
+    f.write('ASR : {}'.format(asr) + '\n')
+    f.write('CA STD : {}'.format(ca_std) + '\n')
+    f.write('ASR STD : {}'.format(asr_std))
     f.close()
+    torch.save(model.state_dict(), path + '/model.pth')
     return None
