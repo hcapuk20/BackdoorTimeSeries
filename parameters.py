@@ -4,12 +4,19 @@ import torch
 def args_parser():
     parser = argparse.ArgumentParser()
 
+    # threding params
+    parser.add_argument('--worker_per_device', type=int, default=1, help='parallel processes per device')
+    parser.add_argument('--excluded_gpus', type=list, default=[], help='bypassed gpus')
+
     #parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
     parser.add_argument('--model', type=str, default='resnet', help='NN model')
     parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
     parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
+    parser.add_argument('--train_mode', type=str, default='marksman_lam',
+                        help='basic: single loss single optimizer,'
+                             '2opt: single loss two optimizers,'
+                             'marksman: iterative training')
     parser.add_argument('--poisoning_ratio', type=float, default=0.1, help='Poisoning ratio')
-    parser.add_argument('--separate_opts', type=bool, default=False, help='Use seperate optimizers for surrogate and trigger generator')
     parser.add_argument('--poisoning_ratio_train', type=float, default=1, help='Poisoning ratio of the batch in the trining phase')
     parser.add_argument('--clip_ratio', type=float, default=0.1, help='Poisoning ratio')
     parser.add_argument('--target_label', type=int, default=0, help='targeted label')
@@ -27,6 +34,8 @@ def args_parser():
     ############ Training Parameters
     parser.add_argument('--train_epochs', type=int, default= 100)
     parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
+    parser.add_argument('--L2_reg', type=bool, default=False, help='L2 regularization for the generated trigger')
+    parser.add_argument('--cos_reg', type=bool, default=True, help='cosine regularization for the generated trigger')
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
     parser.add_argument('--wd', type=float, default=0.01, help="weight decay")
@@ -34,7 +43,7 @@ def args_parser():
 
     # data loader
     parser.add_argument('--data', type=str, required=False, default='UEA', help='dataset type')
-    parser.add_argument('--root_path', type=str, default='./dataset/JapaneseVowels/', help='root path of the data file')
+    parser.add_argument('--root_path', type=str, default='./dataset/SelfRegulationSCP1/', help='root path of the data file')
     parser.add_argument('--data_path', type=str, default='ETTm1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
@@ -82,7 +91,7 @@ def args_parser():
 
 
     # optimization
-    parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
+    parser.add_argument('--num_workers', type=int, default=1, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='optimizer learning rate')
@@ -98,7 +107,7 @@ def args_parser():
     parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')
 
     # de-stationary projector params
-    parser.add_argument('--p_hidden_dims', type=int, nargs='+', default=[128, 128],
+    parser.add_argument('--p_hidden_dims', type=int, nargs='+', default=(128, 128),
                         help='hidden layer dimensions of projector (List)')
     parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
 
@@ -107,11 +116,7 @@ def args_parser():
     ###
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
-    if args.use_gpu and args.use_multi_gpu:
-        args.devices = args.devices.replace(' ', '')
-        device_ids = args.devices.split(',')
-        args.device_ids = [int(id_) for id_ in device_ids]
-        args.gpu = args.device_ids[0]
+
 
         
     return args
