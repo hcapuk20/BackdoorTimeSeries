@@ -20,7 +20,7 @@ def main_thread(args):
     args.sim_id = random.randint(1,9999)
     best_overall = 0
     best_bd_model = None
-    for i in range(5):
+    for i in range(3):
         clean_test_acc, bd_accuracy_test, bd_generator = run(args)
         CA.append(clean_test_acc)
         ASR.append(bd_accuracy_test)

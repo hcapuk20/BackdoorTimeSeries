@@ -24,6 +24,7 @@ from epoch import *
 from utils.save_results import save_results
 from utils.plot import plot_time_series
 from copy import deepcopy
+from epoch_cross import epoch_marksman_lam_cross
 
 model_dict = {
     'TimesNet': TimesNet,
@@ -164,6 +165,12 @@ def run(args):
                                                                                 train_loader, args, opt_bd, opt_surr)
                 test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_lam(bd_model, bd_model_prev, surr_model,
                                                                             test_loader, args, train=False)
+            elif args.train_mode == 'marksman_lam_cross':
+                train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_lam_cross(bd_model, bd_model_prev, surr_model,
+                                                                                    train_loader, args, opt_bd,
+                                                                                    opt_surr)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_lam_cross(bd_model, bd_model_prev, surr_model,
+                                                                                test_loader, args, train=False)
                 ############################################
             print('Train Loss', train_loss, 'Train acc', train_acc, 'Test Loss', test_loss, 'Test acc', test_acc)
             print('Backdoor Train', bd_train_acc, 'Backdoor Test', bd_test_acc)
