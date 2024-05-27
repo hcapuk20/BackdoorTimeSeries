@@ -196,7 +196,7 @@ class PatchEmbedding_bd(nn.Module):
         # Patching
         self.patch_len = patch_len
         self.stride = stride
-        self.padding_patch_layer = nn.ReplicationPad1d((0, padding))
+        self.padding_patch_layer = nn.ReplicationPad1d((0, padding)) # the last value repeated padding=stride times hence the number patches increase by one
         self.d_model = d_model
 
         # Backbone, Input encoding: projection of feature vectors onto a d-dim vector space
