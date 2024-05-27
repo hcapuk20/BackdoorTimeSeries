@@ -188,3 +188,45 @@ class PatchEmbedding(nn.Module):
         # Input encoding
         x = self.value_embedding(x) + self.position_embedding(x)
         return self.dropout(x), n_vars
+
+
+class PatchEmbedding_bd(nn.Module):
+    def __init__(self, d_model, patch_len, stride, padding, dropout,target_token):
+        super(PatchEmbedding_bd, self).__init__()
+        # Patching
+        self.patch_len = patch_len
+        self.stride = stride
+        self.padding_patch_layer = nn.ReplicationPad1d((0, padding))
+        self.d_model = d_model
+
+        # Backbone, Input encoding: projection of feature vectors onto a d-dim vector space
+        self.value_embedding = nn.Linear(patch_len, d_model, bias=False)
+
+        # Positional embedding
+        self.position_embedding = PositionalEmbedding(d_model)
+
+        # Residual dropout
+        self.dropout = nn.Dropout(dropout)
+        self.target_token = target_token
+
+    def forward(self, x,targets):
+        # do patching
+        n_vars = x.shape[1]
+        x = self.padding_patch_layer(x)
+        x = x.unfold(dimension=-1, size=self.patch_len, step=self.stride)
+
+        x = self.value_embedding(x)
+        targ_tokens = torch.zeros(x.shape[0], self.d_model).to(x.device)
+        for i in range(x.shape[0]):
+            targ_tokens[i, :] = targ_tokens[i, :] + self.target_token[targets[i], :]
+        targs_token = targ_tokens.unsqueeze(dim=1)
+        targs_token = targs_token.repeat(1, n_vars, 1)
+        targs_token = targs_token.unsqueeze(dim=2)
+        x = torch.cat((targs_token,x), dim=2)
+
+        x = torch.reshape(x, (x.shape[0] * x.shape[1], x.shape[2], x.shape[3]))
+        # Input encoding
+        print(x.shape)
+        x = x + self.position_embedding(x)
+        print(x.shape)
+        return self.dropout(x), n_vars

@@ -10,7 +10,7 @@ import torch
 from torch import nn
 from layers.Transformer_EncDec import Encoder, EncoderLayer
 from layers.SelfAttention_Family import FullAttention, AttentionLayer
-from layers.Embed import PatchEmbedding
+from layers.Embed import PatchEmbedding_bd
 
 
 class FlattenHead(nn.Module):
@@ -50,8 +50,8 @@ class Model(nn.Module):
         padding = stride
 
         # patching and embedding
-        self.patch_embedding = PatchEmbedding(
-            configs.d_model, patch_len, stride, padding, configs.dropout)
+        self.patch_embedding = PatchEmbedding_bd(
+            configs.d_model, patch_len, stride, padding, configs.dropout,self.target_token)
 
         # Encoder
         self.encoder = Encoder(
@@ -86,19 +86,12 @@ class Model(nn.Module):
         # do patching and embedding
         x_enc = x_enc.permute(0, 2, 1)
         # u: [bs * nvars x patch_num x d_model]
-        enc_out, n_vars = self.patch_embedding(x_enc)
-        print(enc_out.shape,targets.shape)
+        enc_out, n_vars = self.patch_embedding(x_enc,targets)
         ############# embedding the target tokens  ############## can be revised or optimized
         ## For each given batch of samples and targets we generate batch of target token to be appended beginning of the patch sequence
         ### the shape of the target tokens B x n_vars x 1 x d_model
-        targ_tokens = torch.zeros(enc_out.shape[0], self.d_model)
-        for i in range(enc_out.shape[0]):
-            targ_tokens[i,:] = targ_tokens[i,:] + self.target_token[targets[i],:]
-        targs_token = targ_tokens.unsqueeze(dim=1)
-        targs_token = targs_token.repeat(1, n_vars, 1)
-        targs_token.unsqueeze(dim=2)
+
         ###### concatenate targs_token with enc_out
-        print(targs_token.shape,enc_out.shape)
       
 
       
@@ -113,6 +106,7 @@ class Model(nn.Module):
         enc_out = enc_out.permute(0, 1, 3, 2)
 
         # Decoder
+        print(enc_out.shape)
         dec_out = self.head(enc_out)  # z: [bs x nvars x target_window]
         dec_out = dec_out.permute(0, 2, 1)
 
