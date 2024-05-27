@@ -1,3 +1,4 @@
+import math
 import os
 import random
 import numpy as np
@@ -219,10 +220,17 @@ def run(args):
     bd_generator.eval()
     clean_ratio = 1 - args.poisoning_ratio
     train_dataset, bd_dataset = torch.utils.data.random_split(train_data, [clean_ratio, args.poisoning_ratio])
-    bs = int(args.batch_size * clean_ratio) + 1
+    bs = math.floor(args.batch_size * clean_ratio)
     train_loader = custom_data_loader(train_dataset, args, flag='train', force_bs=bs)
-    bd_bs = int(args.batch_size * args.poisoning_ratio) + 1
-    bd_loader = custom_data_loader(bd_dataset, args, flag='train', force_bs=bd_bs)
+    bd_loader_clean = None
+    if args.silent_poisoning:
+        bd_bs = math.ceil(args.batch_size * args.poisoning_ratio / 2)
+        bd_dataset,bd_dataset_clean = torch.utils.data.random_split(bd_dataset, [0.5,0.5])
+        bd_loader = custom_data_loader(bd_dataset, args, flag='train', force_bs=bd_bs)
+        bd_loader_clean = custom_data_loader(bd_dataset_clean, args, flag='train', force_bs=bd_bs)
+    else:
+        bd_bs = math.ceil(args.batch_size * args.poisoning_ratio)
+        bd_loader = custom_data_loader(bd_dataset, args, flag='train', force_bs=bd_bs)
     clean_model = get_clean_model(args, train_data, test_data)
     optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr)
 
@@ -230,8 +238,12 @@ def run(args):
     for i in tqdm(range(100)):
         clean_model.train()
         ### Train epoch with clean data and backdoor datasets.
-        train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_generator, clean_model, train_loader,
-                                                                          bd_loader, args, optimizer)
+        if args.silent_poisoning:
+            train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train_silent(bd_generator, clean_model, train_loader,
+                                                                          bd_loader,bd_loader_clean, args, optimizer)
+        else:
+            train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_generator, clean_model, train_loader,
+                                                                           bd_loader, args, optimizer)
         clean_model.eval()
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args)
         print('Test CA:', clean_test_acc, 'Test ASR:', bd_accuracy_test)

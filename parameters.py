@@ -12,7 +12,7 @@ def args_parser():
     parser.add_argument('--model', type=str, default='resnet', help='NN model')
     parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
     parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
-    parser.add_argument('--train_mode', type=str, default='marksman_lam',
+    parser.add_argument('--train_mode', type=str, default='marksman_lam_cross',
                         help='basic: single loss single optimizer,'
                              '2opt: single loss two optimizers,'
                              'marksman: iterative training')
@@ -22,6 +22,7 @@ def args_parser():
     parser.add_argument('--target_label', type=int, default=0, help='targeted label')
     parser.add_argument('--load_bd_model', type=str, default=None, help='path to the bd model weights')
     parser.add_argument('--label_smooth', type=float, default=0., help='label smoothing')
+    parser.add_argument('--silent_poisoning', type=bool, default=True, help='label smoothing')
 
 
     # Training or testing
@@ -32,9 +33,9 @@ def args_parser():
     parser.add_argument('--task_name', type=str, default='classification', help='Task to be performed.')
     
     ############ Training Parameters
-    parser.add_argument('--train_epochs', type=int, default= 100)
-    parser.add_argument('--batch_size', type=int, default=32, help='batch size of train input data')
-    parser.add_argument('--L2_reg', type=bool, default=False, help='L2 regularization for the generated trigger')
+    parser.add_argument('--train_epochs', type=int, default= 1)
+    parser.add_argument('--batch_size', type=int, default=40, help='batch size of train input data')
+    parser.add_argument('--L2_reg', type=bool, default=True, help='L2 regularization for the generated trigger')
     parser.add_argument('--cos_reg', type=bool, default=True, help='cosine regularization for the generated trigger')
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
@@ -43,7 +44,7 @@ def args_parser():
 
     # data loader
     parser.add_argument('--data', type=str, required=False, default='UEA', help='dataset type')
-    parser.add_argument('--root_path', type=str, default='./dataset/SelfRegulationSCP1/', help='root path of the data file')
+    parser.add_argument('--root_path', type=str, default='./dataset/JapaneseVowels/', help='root path of the data file')
     parser.add_argument('--data_path', type=str, default='ETTm1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
