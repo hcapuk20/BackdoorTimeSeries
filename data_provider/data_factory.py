@@ -62,7 +62,7 @@ def data_provider(args, flag):
             data_set,
             batch_size=batch_size,
             shuffle=shuffle_flag,
-            num_workers=args.num_workers,
+            pin_memory=True,
             drop_last=drop_last,
             collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
         )
@@ -111,7 +111,7 @@ def custom_data_loader(dataset,args,flag,force_bs=None):
         dataset,
         batch_size=batch_size,
         shuffle=shuffle_flag,
-        num_workers=args.num_workers,
+        pin_memory=True,
         drop_last=drop_last,
         collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
     )

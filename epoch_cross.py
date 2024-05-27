@@ -8,7 +8,6 @@ def epoch_marksman_lam_cross(bd_model, bd_model_prev, surr_model, loader, args, 
     bds = []
     bd_label = args.target_label
     loss_dict = {'CE_c':[],'CE_bd':[],'reg':[]}
-    ratio = args.poisoning_ratio_train
     bd_model_prev.eval() ## ----> trigger gnerator for classifier is in evaluation mode
     if train:
         surr_model.train()
@@ -49,7 +48,7 @@ def epoch_marksman_lam_cross(bd_model, bd_model_prev, surr_model, loader, args, 
         surr_model.eval() ### surrogate model in eval mode
         trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None) # trigger with active model
         bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None) # surrogate classifier in eval mode
-        loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
+        loss_bd = args.criterion_bd(bd_pred, bd_labels.long().squeeze(-1))
         loss_reg = reg_loss(batch_x, trigger,trigger_clip,args)
         loss_trig = loss_bd + loss_reg
         total_loss.append(loss_trig.item() + loss_class.item())

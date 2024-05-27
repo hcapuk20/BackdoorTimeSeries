@@ -14,6 +14,7 @@ from models.PatchTST import Model as PatchTST
 from models.bd_Universal import Bd_Tnet
 from models.Bd_inverted import Model as Bd_inverted
 from models.Bd_patch import Model as Bd_patch
+from models.Bd_patch_dyn import Model as Bd_patch_dyn
 from models.Transformer import Model as Transformer
 from models.SegRNN import Model as SegRNN
 from models.LightTS import Model as LightTS
@@ -71,6 +72,7 @@ def get_bd_model(args, train_data, test_data):
     args.seq_len = max(train_data.max_seq_len, test_data.max_seq_len) ## seq length
     args.pred_len = 0
     args.enc_in = train_data.feature_df.shape[1]
+    args.numb_class = train_data.num_cls
     print('enc_in',args.enc_in,'seq_len',args.seq_len)
     args.num_class = len(train_data.class_names)
     # model init
@@ -80,6 +82,8 @@ def get_bd_model(args, train_data, test_data):
         generative_model = Bd_inverted(args).float().to(args.device)
     elif args.bd_model == 'patchtst':
         generative_model = Bd_patch(args).float().to(args.device)
+    elif args.bd_model == 'patchdyn':
+        generative_model = Bd_patch_dyn(args).float().to(args.device)
     else:
         raise NotImplementedError
     ################## Combined Model ===> backdoor trigger network + surrogate classifier network ###################
@@ -123,10 +127,11 @@ def run(args):
     print("model initialized...")
     # ============================================================================
     # ===== Add loss criterion to the args =====
-    args.criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smooth)
+    args.criterion = nn.CrossEntropyLoss()
     ######### The loss term for utilizing mixup 
     args.criterion_mix = nn.CrossEntropyLoss(reduce=False) # in order to have batch-wise results rather than sum or average
     # ===== Add optimizer to the args =====
+    args.criterion_bd = nn.CrossEntropyLoss(label_smoothing=args.label_smooth)
     opt_surr = None
     if args.load_bd_model is None:
         ### Experimental

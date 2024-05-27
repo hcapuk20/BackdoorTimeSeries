@@ -11,7 +11,7 @@ def args_parser():
     #parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
     parser.add_argument('--model', type=str, default='resnet', help='NN model')
     parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
-    parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
+    parser.add_argument('--bd_model', type=str, default='patchdyn', help='trigger generator model. patchtst or inverted')
     parser.add_argument('--train_mode', type=str, default='marksman_lam_cross',
                         help='basic: single loss single optimizer,'
                              '2opt: single loss two optimizers,'

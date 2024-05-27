@@ -75,28 +75,30 @@ class Model(nn.Module):
         self.head = FlattenHead(configs.enc_in, self.head_nf, configs.seq_len,
                                     head_dropout=configs.dropout)
         ################ Here we also have a vector of length B targets #################
-    def trigger_gen(self, x_enc, x_mark_enc, x_dec, x_mark_dec, targets):
+    def trigger_gen(self, x_enc, x_mark_enc, x_dec, x_mark_dec,targets=None):
         # Normalization from Non-stationary Transformer
+        targets = torch.randint(0,self.numb_class,(x_enc.shape[0],))
         means = x_enc.mean(1, keepdim=True).detach()
         x_enc = x_enc - means
         stdev = torch.sqrt(
             torch.var(x_enc, dim=1, keepdim=True, unbiased=False) + 1e-5)
         x_enc /= stdev
-        nvars == ### incomplete
         # do patching and embedding
         x_enc = x_enc.permute(0, 2, 1)
         # u: [bs * nvars x patch_num x d_model]
         enc_out, n_vars = self.patch_embedding(x_enc)
+        print(enc_out.shape,targets.shape)
         ############# embedding the target tokens  ############## can be revised or optimized
         ## For each given batch of samples and targets we generate batch of target token to be appended beginning of the patch sequence
         ### the shape of the target tokens B x n_vars x 1 x d_model
         targ_tokens = torch.zeros(enc_out.shape[0], self.d_model)
-        for i in range(enc_out.shape[0])
-            targ_token[i,:] = targ_token[i,:] + self.target_token[targets[i],:]
-        targs_token=a.unsqueeze(dim=1)
-        targs_token=targs_token.repeat(1, nvars, 1)
+        for i in range(enc_out.shape[0]):
+            targ_tokens[i,:] = targ_tokens[i,:] + self.target_token[targets[i],:]
+        targs_token = targ_tokens.unsqueeze(dim=1)
+        targs_token = targs_token.repeat(1, n_vars, 1)
         targs_token.unsqueeze(dim=2)
         ###### concatenate targs_token with enc_out
+        print(targs_token.shape,enc_out.shape)
       
 
       
@@ -122,7 +124,7 @@ class Model(nn.Module):
         return dec_out
 
 
-    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, targets):
+    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, targets=None):
         dec_out = self.trigger_gen(x_enc, x_mark_enc, x_dec, x_mark_dec,targets)[:, -self.pred_len:, :]
         clipped = self.clipping_amp(x_enc,dec_out,self.clip_ratio)
         return dec_out,clipped # [B, L, D]
