@@ -62,7 +62,7 @@ class Model(nn.Module):
                        int((configs.seq_len - patch_len) / stride + 2)
         self.head = FlattenHead(configs.enc_in, self.head_nf, configs.seq_len,
                                     head_dropout=configs.dropout)
-    def trigger_gen(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
+    def trigger_gen(self, x_enc):
         # Normalization from Non-stationary Transformer
         means = x_enc.mean(1, keepdim=True).detach()
         x_enc = x_enc - means
@@ -96,8 +96,8 @@ class Model(nn.Module):
         return dec_out
 
 
-    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
-        dec_out = self.trigger_gen(x_enc, x_mark_enc, x_dec, x_mark_dec)[:, -self.pred_len:, :]
+    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec,bd_labels):
+        dec_out = self.trigger_gen(x_enc)[:, -self.pred_len:, :]
         clipped = self.clipping_amp(x_enc,dec_out,self.clip_ratio)
         return dec_out,clipped # [B, L, D]
 

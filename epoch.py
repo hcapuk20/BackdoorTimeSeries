@@ -29,15 +29,10 @@ def l2_reg(clipped_trigger, trigger):
     return torch.norm(trigger - clipped_trigger)
 
 def reg_loss(x_clean,trigger,trigger_clip,args):
-    l2_loss = 0
-    cos_loss = 0
-    if args.L2_reg:
-        l2_loss = l2_reg(trigger_clip,trigger)
-    if args.cos_reg:
-        cos_loss = fftreg(x_clean,x_clean+trigger_clip)
-    reg_total = l2_loss + cos_loss
-    if reg_total > 0:
-        return reg_total
+    l2_loss = l2_reg(trigger_clip,trigger)
+    cos_loss = fftreg(x_clean,x_clean+trigger_clip)
+    reg_total = l2_loss * args.L2_reg + cos_loss * args.cos_reg
+    return reg_total
 
 
 
@@ -185,7 +180,6 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
         surr_model.eval()
         bd_model.eval()
     for i, (batch_x, label, padding_mask) in enumerate(loader):
-        b_r = int(batch_x.size(0) * ratio)#### ???????????? please explain
         bd_model.zero_grad()
         surr_model.train() ### surrogate model in train mode 
         surr_model.zero_grad()
@@ -196,9 +190,15 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
         #### Fetch labels
         label = label.to(args.device)
         #### Generate backdoor labels ####### so far we focus on fixed target scenario
-        bd_labels = torch.ones_like(label).to(args.device) * bd_label ## comes from argument
+        if args.bd_type == 'all2all':
+            bd_labels = torch.randint(0, args.numb_class, (batch_x.shape[0],)).to(args.device)
+            assert args.bd_model == 'patchdyn' ### only for patchdyn model
+        elif args.bd_type == 'all2one':
+            bd_labels = torch.ones_like(label).to(args.device) * bd_label ## comes from argument
+        else:
+            raise ValueError('bd_type should be all2all or all2one')
         ########### First train surrogate classifier with frozen trigger #####################
-        trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None) # generate trigger with frozen model
+        trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None,bd_labels) # generate trigger with frozen model
         clean_pred = surr_model(batch_x, padding_mask,None,None)
         bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
         loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
@@ -216,7 +216,7 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
             opt_class.step()
         ###########  Train trigger classifier with updated surrogate classifier (eval mode) #####################
         surr_model.eval() ### surrogate model in eval mode
-        trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None) # trigger with active model
+        trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None,bd_labels) # trigger with active model
         batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip, alpha=2, beta=2) # generate mix_batch
         bd_pred = surr_model(batch_mix, padding_mask,None,None) # surrogate classifier in eval mode
         ######## here we combine two loss one for each label 

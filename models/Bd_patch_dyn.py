@@ -104,10 +104,8 @@ class Model(nn.Module):
             enc_out, (-1, n_vars, enc_out.shape[-2], enc_out.shape[-1]))
         # z: [bs x nvars x d_model x patch_num]
         enc_out = enc_out.permute(0, 1, 3, 2)
-
         # Decoder
-        print(enc_out.shape)
-        dec_out = self.head(enc_out)  # z: [bs x nvars x target_window]
+        dec_out = self.head(enc_out[:,:,:,1:])  # z: [bs x nvars x target_window]
         dec_out = dec_out.permute(0, 2, 1)
 
         # De-Normalization from Non-stationary Transformer

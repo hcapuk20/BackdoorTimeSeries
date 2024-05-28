@@ -65,7 +65,7 @@ class Model(nn.Module):
         dec_out = dec_out + (means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1))
         return dec_out
 
-    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
+    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec,bd_labels):
         dec_out = self.trigger_gen(x_enc, x_mark_enc, x_dec, x_mark_dec)
         dec_out = dec_out[:, -self.pred_len:, :]
         #dec_out = self.th_clipping2(x_enc, dec_out)

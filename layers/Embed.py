@@ -226,7 +226,5 @@ class PatchEmbedding_bd(nn.Module):
 
         x = torch.reshape(x, (x.shape[0] * x.shape[1], x.shape[2], x.shape[3]))
         # Input encoding
-        print(x.shape)
         x = x + self.position_embedding(x)
-        print(x.shape)
         return self.dropout(x), n_vars

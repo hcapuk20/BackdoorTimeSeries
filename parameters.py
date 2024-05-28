@@ -12,13 +12,14 @@ def args_parser():
     parser.add_argument('--model', type=str, default='resnet', help='NN model')
     parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
     parser.add_argument('--bd_model', type=str, default='patchdyn', help='trigger generator model. patchtst or inverted')
-    parser.add_argument('--train_mode', type=str, default='marksman_lam_cross',
+    parser.add_argument('--train_mode', type=str, default='marksman_lam',
                         help='basic: single loss single optimizer,'
                              '2opt: single loss two optimizers,'
                              'marksman: iterative training')
     parser.add_argument('--poisoning_ratio', type=float, default=0.1, help='Poisoning ratio')
     parser.add_argument('--poisoning_ratio_train', type=float, default=1, help='Poisoning ratio of the batch in the trining phase')
     parser.add_argument('--clip_ratio', type=float, default=0.1, help='Poisoning ratio')
+    parser.add_argument('--bd_type', type=str, default='all2one', help='all2one or all2all')
     parser.add_argument('--target_label', type=int, default=0, help='targeted label')
     parser.add_argument('--load_bd_model', type=str, default=None, help='path to the bd model weights')
     parser.add_argument('--label_smooth', type=float, default=0., help='label smoothing')
@@ -35,8 +36,8 @@ def args_parser():
     ############ Training Parameters
     parser.add_argument('--train_epochs', type=int, default= 1)
     parser.add_argument('--batch_size', type=int, default=40, help='batch size of train input data')
-    parser.add_argument('--L2_reg', type=bool, default=True, help='L2 regularization for the generated trigger')
-    parser.add_argument('--cos_reg', type=bool, default=True, help='cosine regularization for the generated trigger')
+    parser.add_argument('--L2_reg', type=float, default=0, help='L2 regularization for the generated trigger')
+    parser.add_argument('--cos_reg', type=float, default=1, help='cosine regularization for the generated trigger')
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
     parser.add_argument('--wd', type=float, default=0.01, help="weight decay")
