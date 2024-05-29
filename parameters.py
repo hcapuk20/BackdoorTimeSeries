@@ -5,13 +5,13 @@ def args_parser():
     parser = argparse.ArgumentParser()
 
     # threding params
-    parser.add_argument('--worker_per_device', type=int, default=1, help='parallel processes per device')
+    parser.add_argument('--worker_per_device', type=int, default=20, help='parallel processes per device')
     parser.add_argument('--excluded_gpus', type=list, default=[], help='bypassed gpus')
 
     #parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
     parser.add_argument('--model', type=str, default='resnet', help='NN model')
     parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
-    parser.add_argument('--bd_model', type=str, default='patchdyn', help='trigger generator model. patchtst or inverted')
+    parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
     parser.add_argument('--train_mode', type=str, default='marksman_lam',
                         help='basic: single loss single optimizer,'
                              '2opt: single loss two optimizers,'
@@ -22,8 +22,8 @@ def args_parser():
     parser.add_argument('--bd_type', type=str, default='all2one', help='all2one or all2all')
     parser.add_argument('--target_label', type=int, default=0, help='targeted label')
     parser.add_argument('--load_bd_model', type=str, default=None, help='path to the bd model weights')
-    parser.add_argument('--label_smooth', type=float, default=0.05, help='label smoothing')
-    parser.add_argument('--silent_poisoning', type=bool, default=True, help='label smoothing')
+    parser.add_argument('--label_smooth', type=float, default=0., help='label smoothing')
+    parser.add_argument('--silent_poisoning', type=bool, default=False, help='label smoothing')
 
 
     # Training or testing
@@ -34,10 +34,10 @@ def args_parser():
     parser.add_argument('--task_name', type=str, default='classification', help='Task to be performed.')
     
     ############ Training Parameters
-    parser.add_argument('--train_epochs', type=int, default= 1)
+    parser.add_argument('--train_epochs', type=int, default= 100)
     parser.add_argument('--batch_size', type=int, default=40, help='batch size of train input data')
-    parser.add_argument('--L2_reg', type=float, default=0, help='L2 regularization for the generated trigger')
-    parser.add_argument('--cos_reg', type=float, default=1, help='cosine regularization for the generated trigger')
+    parser.add_argument('--L2_reg', type=float, default=0., help='L2 regularization for the generated trigger')
+    parser.add_argument('--cos_reg', type=float, default=0, help='cosine regularization for the generated trigger')
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
     parser.add_argument('--wd', type=float, default=0.01, help="weight decay")
