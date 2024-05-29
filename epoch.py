@@ -281,7 +281,6 @@ def epoch(bd_model,surr_model, loader, args, opt=None,opt2=None,train=True): ###
         surr_model.eval()
         bd_model.eval()
     for i, (batch_x, label, padding_mask) in enumerate(loader):
-            b_r = int(batch_x.size(0) * ratio)
             bd_model.zero_grad()
             surr_model.zero_grad()
             #### Fetch clean data

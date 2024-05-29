@@ -22,7 +22,7 @@ def args_parser():
     parser.add_argument('--bd_type', type=str, default='all2one', help='all2one or all2all')
     parser.add_argument('--target_label', type=int, default=0, help='targeted label')
     parser.add_argument('--load_bd_model', type=str, default=None, help='path to the bd model weights')
-    parser.add_argument('--label_smooth', type=float, default=0., help='label smoothing')
+    parser.add_argument('--label_smooth', type=float, default=0., help='label smoothing for backdoor CE loss')
     parser.add_argument('--silent_poisoning', type=bool, default=False, help='label smoothing')
 
 
@@ -93,32 +93,20 @@ def args_parser():
 
 
     # optimization
-    parser.add_argument('--num_workers', type=int, default=1, help='data loader num workers')
-    parser.add_argument('--itr', type=int, default=1, help='experiments times')
-    parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='optimizer learning rate')
     parser.add_argument('--des', type=str, default='exp', help='exp description')
     parser.add_argument('--loss', type=str, default='CE', help='loss function')
     parser.add_argument('--lradj', type=str, default='type1', help='adjust learning rate')
     parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
 
-    # GPU
-    parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
-    parser.add_argument('--gpu', type=int, default=0, help='gpu')
-    parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)
-    parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')
 
     # de-stationary projector params
     parser.add_argument('--p_hidden_dims', type=int, nargs='+', default=(128, 128),
                         help='hidden layer dimensions of projector (List)')
     parser.add_argument('--p_hidden_layers', type=int, default=2, help='number of hidden layers in projector')
 
+    parser.add_argument('--numb_class', type=int, default=1,
+                        help='temp num class value for classication task for debugging, actual value changes during runtime')
     args = parser.parse_args()
 
-    ###
-    args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
-
-
-
-        
     return args
