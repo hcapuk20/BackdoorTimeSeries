@@ -22,7 +22,7 @@ def args_parser():
     parser.add_argument('--bd_type', type=str, default='all2one', help='all2one or all2all')
     parser.add_argument('--target_label', type=int, default=0, help='targeted label')
     parser.add_argument('--load_bd_model', type=str, default=None, help='path to the bd model weights')
-    parser.add_argument('--label_smooth', type=float, default=0., help='label smoothing')
+    parser.add_argument('--label_smooth', type=float, default=0.05, help='label smoothing')
     parser.add_argument('--silent_poisoning', type=bool, default=True, help='label smoothing')
 
 
