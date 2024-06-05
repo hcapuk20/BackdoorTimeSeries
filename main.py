@@ -88,6 +88,8 @@ def get_bd_model(args, train_data, test_data):
         raise NotImplementedError
     ################## Combined Model ===> backdoor trigger network + surrogate classifier network ###################
     bd_model = Bd_Tnet(args,generative_model).float().to(args.device)
+    if args.use_multi_gpu and args.use_gpu:
+        bd_model = nn.DataParallel(bd_model, device_ids=args.device_ids)
     return bd_model,model_sur
 
 def get_clean_model(args, train_data, test_data):
@@ -98,6 +100,8 @@ def get_clean_model(args, train_data, test_data):
     args.num_class = len(train_data.class_names)
     # model init
     model = model_dict[args.model](args).float().to(args.device)
+    if args.use_multi_gpu and args.use_gpu:
+        model = nn.DataParallel(model, device_ids=args.device_ids)
     return model
 
 
@@ -119,6 +123,7 @@ def run(args):
     # since initializion of the networks requires the seq length of the data
     best_bd = 0
     best_dict = None
+    last_dict = None
     print("model initialized...")
     # ============================================================================
     # ===== Add loss criterion to the args =====
@@ -146,12 +151,7 @@ def run(args):
         # opt_bd = torch.optim.AdamW(filter(lambda p: p.requires_grad, bd_model.parameters()), lr=args.lr)
         if args.train_mode != 'basic':
             opt_bd = torch.optim.AdamW(bd_model.trigger.parameters(), lr=args.lr)
-            opt_surr = torch.optim.Adam(surr_model.parameters(), lr=args.lr)
-            if bd_model == 'patchdyn':
-                opt_bd = torch.optim.AdamW([
-                {'params': bd_model.trigger.target_token, 'lr': 1e-5},
-                {'params': bd_model.trigger.parameters()}
-            ], lr=1e-3)
+            opt_surr = torch.optim.AdamW(surr_model.parameters(), lr=args.lr)
         else:
             collective_params = list(surr_model.parameters()) + list(bd_model.parameters())
             opt_bd = torch.optim.AdamW(collective_params, lr=args.lr)
@@ -245,7 +245,7 @@ def run(args):
         ### Train epoch with clean data and backdoor datasets.
         if args.silent_poisoning:
             train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train_silent(bd_generator, clean_model, train_loader,
-                                                                          bd_loader,bd_loader_clean, args, optimizer) ## half of the triggers are true label
+                                                                          bd_loader,bd_loader_clean, args, optimizer)
         else:
             train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_generator, clean_model, train_loader,
                                                                            bd_loader, args, optimizer)

@@ -96,7 +96,7 @@ class Model(nn.Module):
         return dec_out
 
 
-    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec,bd_labels=None):
+    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec,bd_labels):
         dec_out = self.trigger_gen(x_enc)[:, -self.pred_len:, :]
         clipped = self.clipping_amp(x_enc,dec_out,self.clip_ratio)
         return dec_out,clipped # [B, L, D]

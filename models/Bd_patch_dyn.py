@@ -45,9 +45,8 @@ class Model(nn.Module):
         self.numb_class = configs.numb_class
         self.clip_ratio = configs.clip_ratio
         self.d_model = configs.d_model
-        self.target_token = torch.nn.Parameter(torch.Tensor(configs.numb_class,configs.d_model), requires_grad=False) # C (numb_class x d_model) size matrix of trainable weights of target tokens
-        ######### initialize tokens #####
-        nn.init.orthogonal_(self.target_token)
+        self.target_token = torch.nn.Parameter(torch.Tensor(configs.numb_class,configs.d_model), requires_grad=True) # C (numb_class x d_model) size matrix of trainable weights of target tokens
+        ######### initialize tokens ##### 
         padding = stride
 
         # patching and embedding
@@ -76,8 +75,9 @@ class Model(nn.Module):
         self.head = FlattenHead(configs.enc_in, self.head_nf, configs.seq_len,
                                     head_dropout=configs.dropout)
         ################ Here we also have a vector of length B targets #################
-    def trigger_gen(self, x_enc, x_mark_enc, x_dec, x_mark_dec,targets):
+    def trigger_gen(self, x_enc, x_mark_enc, x_dec, x_mark_dec,targets=None):
         # Normalization from Non-stationary Transformer
+        targets = torch.randint(0,self.numb_class,(x_enc.shape[0],))
         means = x_enc.mean(1, keepdim=True).detach()
         x_enc = x_enc - means
         stdev = torch.sqrt(
@@ -121,9 +121,6 @@ class Model(nn.Module):
         clipped = self.clipping_amp(x_enc,dec_out,self.clip_ratio)
         return dec_out,clipped # [B, L, D]
 
-    def activate_target_token(self):
-          self.target_token.requires_grad = True
-
     def clipping_amp(self, x_enc, x_gen,
                      ratio=0.1):  #### Amp clipping =>> the change in the value can not be higher than certaın fraction of the signal amp max-min
         ## ---> shape B x C x T ---> batch channel time
@@ -133,4 +130,3 @@ class Model(nn.Module):
         amp = amp.unsqueeze(dim=2)
         x_gen_clip = torch.clamp(x_gen, min=-amp * ratio, max=amp * ratio)
         return x_gen_clip
-
