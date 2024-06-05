@@ -15,11 +15,11 @@ def plot_time_series(args,data, bd):
 
     # Get the number of time series (b) and the length of each series (T)
     M,T = data.shape
-    sqrt_b = int(math.sqrt(M))
+    sqrt_b = int(math.ceil(math.sqrt(M)))
+    sqrt_b = min(sqrt_b, 1)
     max_variates = sqrt_b **2
-
     # Create sqrt(b) x sqrt(b) subplots
-    fig, axs = plt.subplots(sqrt_b, sqrt_b)
+    fig, axs = plt.subplots(sqrt_b, sqrt_b, squeeze=False)
 
     # Flatten the axs array for easy iteration
     try:
@@ -28,7 +28,7 @@ def plot_time_series(args,data, bd):
         axs = axs
 
     # Plot each time series in a separate subplot
-    for i in range(max_variates):
+    for i in range(min(max_variates, M)): # if allowed square is bigger than the number of variates, stop early.
         axs[i].plot(data[i], label='Original')
         axs[i].plot(bd[i], label='Backdoor')
 
