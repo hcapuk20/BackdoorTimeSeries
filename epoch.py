@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 from utils.model_ops import *
+from defences.fp import Pruning
 
 ################
 '''
@@ -357,13 +358,13 @@ def epoch_clean_train_silent(bd_model,clean_model, loader,loader_bd,loader_bd_cl
         bd_x = bd_x.to(args.device).float()
         bd_x_c = bd_x2.to(args.device).float()
         bs_1, bs_2, bs_3 = batch_x.size(0), bd_x.size(0),bd_x2.size(0)
-        trigger_x,trigger_clipped = bd_model(bd_x,padding_mask_bd,None,None)
-        trigger_x_c, trigger_clipped_c = bd_model(bd_x_c, padding_mask_bd, None, None)
+        label_bd = torch.ones_like(label_bd).to(args.device) * bd_label
+        trigger_x,trigger_clipped = bd_model(bd_x,padding_mask_bd,None,None,label_bd)
+        trigger_x_c, trigger_clipped_c = bd_model(bd_x_c, padding_mask_bd, None, None,label_bd)
         alpha = torch.rand_like(bd_x_c).float() * .5
         bd_batch_silent = alpha * (bd_x_c + trigger_clipped_c) + (1-alpha) * bd_x_c
         bd_batch = bd_x + trigger_clipped
         label = label.to(args.device)
-        label_bd = torch.ones_like(label_bd).to(args.device) * bd_label
         all_labels = torch.cat((label,c_label_bd,label_bd),dim=0)
         padding_mask = torch.cat((padding_mask,padding_mask_bd,padding_mask_bd2),dim=0)
         batch_x = torch.cat((batch_x,bd_batch_silent,bd_batch),dim=0)
@@ -453,7 +454,8 @@ def epoch_clean_test(bd_model,clean_model, loader,args,plot=None): ## for testin
         batch_x = batch_x.float().to(args.device)
         padding_mask = padding_mask.float().to(args.device)
         label = label.to(args.device)
-        trigger_x,trigger_clipped = bd_model(batch_x, padding_mask, None, None)
+        target_labels = torch.ones_like(label) * bd_label
+        trigger_x,trigger_clipped = bd_model(batch_x, padding_mask, None, None,target_labels)
         clean_outs = clean_model(batch_x, padding_mask,None,None)
         bd_batch = batch_x + trigger_clipped
         bd_outs = clean_model(bd_batch, padding_mask,None,None)
@@ -528,3 +530,38 @@ def clean_test(model,loader,args): ### test CA without poisoining the model
     trues = trues.flatten().cpu().numpy()
     accuracy = cal_accuracy(predictions, trues)
     return total_loss, accuracy
+
+def defence_test(bd_model,clean_model,train_loader,test_loader,args): ## for testing the backdoored clean model
+    preds = []
+    bd_preds = []
+    trues = []
+    bd_label = args.target_label
+    fp = Pruning(train_loader=train_loader,model=clean_model,args=args)
+    fp.repair(device=args.device)
+    clean_model = fp.get_model()
+    for i, (batch_x, label, padding_mask) in enumerate(test_loader):
+        clean_model.zero_grad()
+        batch_x = batch_x.float().to(args.device)
+        padding_mask = padding_mask.float().to(args.device)
+        label = label.to(args.device)
+        target_labels = torch.ones_like(label) * bd_label
+        trigger_x,trigger_clipped = bd_model(batch_x, padding_mask, None, None,target_labels)
+        clean_outs = clean_model(batch_x, padding_mask,None,None)
+        bd_batch = batch_x + trigger_clipped
+        bd_outs = clean_model(bd_batch, padding_mask,None,None)
+        preds.append(clean_outs.detach())
+        bd_preds.append(bd_outs)
+        trues.append(label)
+    preds = torch.cat(preds, 0)
+    bd_preds = torch.cat(bd_preds, 0)
+    trues = torch.cat(trues, 0)
+    bd_labels = torch.ones_like(trues) * bd_label
+    probs = torch.nn.functional.softmax(
+        preds)  # (total_samples, num_classes) est. prob. for each class and sample
+    predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    bd_predictions = torch.argmax(torch.nn.functional.softmax(bd_preds),
+                                  dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    trues = trues.flatten().cpu().numpy()
+    clean_accuracy = cal_accuracy(predictions, trues)
+    bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
+    return clean_accuracy,bd_accuracy

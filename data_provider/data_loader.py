@@ -688,6 +688,8 @@ class UEAloader(Dataset): ## classification datasets employ this loader
         else:
             self.max_seq_len = lengths[0, 0]
         self.num_cls = np.max(labels_df.values) + 1
+        self.dist = np.bincount(labels_df.values.flatten())
+        self.dist_p = np.round(self.dist / np.sum(self.dist) * 100, 2)
 
         # First create a (seq_len, feat_dim) dataframe for each sample, indexed by a single integer ("ID" of the sample)
         # Then concatenate into a (num_samples * seq_len, feat_dim) dataframe, with multiple rows corresponding to the
