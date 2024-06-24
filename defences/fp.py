@@ -20,6 +20,8 @@ class MaskedLayer(nn.Module):
         self.mask = mask
 
     def forward(self, input):
+        print(input.shape, self.mask.shape)
+        print(self.mask.sum() / self.mask.numel())
         return self.base(input) * self.mask
 
 
@@ -86,15 +88,17 @@ class Pruning(Base):
             hook.remove()
 
         container = torch.cat(container, dim=0)
-        activation = torch.mean(container, dim=[0,1])
+        print('con shape:', container.shape)
+        activation = torch.mean(container, dim=[0,2])
         seq_sort = torch.argsort(activation)
         num_channels = len(activation)
+        print('act shape: ',activation.shape)
         prunned_channels = int(num_channels * prune_rate)
         mask = torch.ones(num_channels).to(self.args.device)
         for element in seq_sort[:prunned_channels]:
             mask[element] = 0
-        if len(container.shape) == 4:
-            mask = mask.reshape(1, -1, 1, 1)
+        if len(container.shape) == 3:
+            mask = mask.reshape(1, -1, 1)
         setattr(model, layer_to_prune, MaskedLayer(getattr(model, layer_to_prune), mask))
 
         self.model = model
