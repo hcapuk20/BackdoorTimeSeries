@@ -33,7 +33,10 @@ def reg_loss(x_clean,trigger,trigger_clip,args):
     l2_loss = l2_reg(trigger_clip,trigger)
     cos_loss = fftreg(x_clean,x_clean+trigger_clip)
     reg_total = l2_loss * args.L2_reg + cos_loss * args.cos_reg
-    return reg_total
+    if reg_total > 0:
+        return reg_total
+    else:
+        return None
 
 
 
@@ -111,9 +114,15 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=N
         #### Fetch labels
         label = label.to(args.device)
         #### Generate backdoor labels ####### so far we focus on fixed target scenario
-        bd_labels = torch.ones_like(label).to(args.device) * bd_label ## comes from argument
+        if args.bd_type == 'all2all':
+            bd_labels = torch.randint(0, args.numb_class, (batch_x.shape[0],)).to(args.device)
+            assert args.bd_model == 'patchdyn'  ### only for patchdyn model
+        elif args.bd_type == 'all2one':
+            bd_labels = torch.ones_like(label).to(args.device) * bd_label  ## comes from argument
+        else:
+            raise ValueError('bd_type should be all2all or all2one')
         ########### First train surrogate classifier with frozen trigger #####################
-        trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None) # generate trigger with frozen model
+        trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None,bd_labels) # generate trigger with frozen model
         clean_pred = surr_model(batch_x, padding_mask,None,None)
         bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
         loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
@@ -365,6 +374,7 @@ def epoch_clean_train_silent(bd_model,clean_model, loader,loader_bd,loader_bd_cl
         bd_batch_silent = alpha * (bd_x_c + trigger_clipped_c) + (1-alpha) * bd_x_c
         bd_batch = bd_x + trigger_clipped
         label = label.to(args.device)
+        label_bd = torch.ones_like(label_bd).to(args.device) * bd_label
         all_labels = torch.cat((label,c_label_bd,label_bd),dim=0)
         padding_mask = torch.cat((padding_mask,padding_mask_bd,padding_mask_bd2),dim=0)
         batch_x = torch.cat((batch_x,bd_batch_silent,bd_batch),dim=0)
