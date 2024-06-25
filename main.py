@@ -20,6 +20,7 @@ from models.SegRNN import Model as SegRNN
 from models.LightTS import Model as LightTS
 from models.LSTM import LSTMClassifier as LSTM
 from models.ResNet import ResNetClassifier as ResNet
+from models.ResNet2 import ResNet as ResNet2
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from epoch import *
@@ -39,6 +40,7 @@ model_dict = {
     'lightTS': LightTS,
     'lstm': LSTM,
     'resnet': ResNet,
+    'resnet2': ResNet2
 }
 
 ######################################################### This is the V0 (initial prototype) code for time series backdoor ############################################
@@ -258,11 +260,11 @@ def run(args):
         clean_model.eval()
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args)
         print('Test CA:', clean_test_acc, 'Test ASR:', bd_accuracy_test)
-    clean_test_acc_def, bd_accuracy_test_def = defence_test(bd_generator, clean_model,bd_loader_clean, test_loader, args)
+    clean_test_acc_def, bd_accuracy_test_def = defence_test_fp(bd_generator, clean_model,bd_loader_clean, test_loader, args)
     print('defences :', clean_test_acc_def, bd_accuracy_test_def)
     if args.root_path.split('/')[-2] != 'UWaveGestureLibrary':
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
-    return clean_test_acc, bd_accuracy_test,bd_generator
+    return clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def,bd_generator
 
 
 if __name__ == '__main__':
@@ -270,15 +272,20 @@ if __name__ == '__main__':
     args = args_parser()
     CA = []
     ASR = []
+    CA_def = []
+    ASR_def = []
     args.sim_id = random.randint(1,9999)
     best_overall = 0
     best_bd_model = None
     for i in range(3):
-        clean_test_acc, bd_accuracy_test,bd_generator = run(args)
+        clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def, bd_generator = run(args)
+        CA_def.append(clean_test_acc_def)
+        ASR_def.append(bd_accuracy_test_def)
         CA.append(clean_test_acc)
         ASR.append(bd_accuracy_test)
         overall_acc = 0.45 * clean_test_acc + 0.55 * bd_accuracy_test
         if overall_acc > best_overall:
             best_overall = overall_acc
             best_bd_model = bd_generator
-    save_results(args, np.mean(CA), np.mean(ASR),np.std(CA),np.std(ASR),best_bd_model)
+    save_results(args, np.mean(CA), np.mean(ASR),np.std(CA),np.std(ASR),np.mean(CA_def),np.mean(ASR_def),
+                    np.std(CA_def), np.std(ASR_def) ,best_bd_model)

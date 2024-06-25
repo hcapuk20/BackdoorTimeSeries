@@ -20,7 +20,7 @@ def log(path,args,sim_id):
     f.close()
 
 
-def save_results(args,ca,asr,ca_std,asr_std,model):
+def save_results(args,ca,asr,ca_std,asr_std,def_ca,def_asr,def_ca_std,def_asr_std,model):
     sim_id = args.sim_id
     dataset = args.root_path.split('/')[-1]
     if len(dataset) < 2:
@@ -36,7 +36,11 @@ def save_results(args,ca,asr,ca_std,asr_std,model):
     f.write('CA : {}'.format(ca) + '\n')
     f.write('ASR : {}'.format(asr) + '\n')
     f.write('CA STD : {}'.format(ca_std) + '\n')
-    f.write('ASR STD : {}'.format(asr_std))
+    f.write('ASR STD : {}'.format(asr_std)+ '\n')
+    f.write('def-CA : {}'.format(def_ca) + '\n')
+    f.write('def-ASR : {}'.format(def_asr) + '\n')
+    f.write('def-CA STD : {}'.format(def_ca_std) + '\n')
+    f.write('def-ASR STD : {}'.format(def_asr_std) + '\n')
     f.close()
     torch.save(model.state_dict(), path + '/model.pth')
     return None

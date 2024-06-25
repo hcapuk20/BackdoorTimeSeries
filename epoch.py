@@ -541,14 +541,21 @@ def clean_test(model,loader,args): ### test CA without poisoining the model
     accuracy = cal_accuracy(predictions, trues)
     return total_loss, accuracy
 
-def defence_test(bd_model,clean_model,train_loader,test_loader,args): ## for testing the backdoored clean model
+def defence_test_fp(bd_model,clean_model,train_loader,test_loader,args): ## for testing the backdoored clean model
     preds = []
     bd_preds = []
     trues = []
     bd_label = args.target_label
+
+    ########## Defence mechanism
     fp = Pruning(train_loader=train_loader,model=clean_model,args=args)
-    fp.repair(device=args.device)
+    if args.model == 'resnet2':
+        fp.repair(device=args.device) ## channel prune
+    else:
+        fp.repair2(device=args.device) # dim prune (Tested on TimesNet)
     clean_model = fp.get_model()
+    ############################
+    # Rest of the code is test epoch
     for i, (batch_x, label, padding_mask) in enumerate(test_loader):
         clean_model.zero_grad()
         batch_x = batch_x.float().to(args.device)
