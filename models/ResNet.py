@@ -32,15 +32,15 @@ class ResBlock(nn.Module):
 class ResNetClassifier(nn.Module):
     def __init__(self, configs):
         super().__init__()
-        self.res_layer1 = ResBlock(configs, configs.seq_len, 64, False)
-        self.res_layer2 = ResBlock(configs, 64, 128, False)
-        self.res_layer3 = ResBlock(configs, 128, 128, 128)
+        self.layer1 = ResBlock(configs, configs.seq_len, 64, False)
+        self.layer2 = ResBlock(configs, 64, 128, False)
+        self.layer3 = ResBlock(configs, 128, 128, 128)
         self.fc_layer = nn.Linear(configs.enc_in, configs.num_class)
 
     def forward(self, x, padding_mask=None, x_dec=None, x_mark_dec=None, mask=None):
-        x = self.res_layer1(x)
-        x = self.res_layer2(x)
-        x = self.res_layer3(x)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
         x = torch.mean(x, dim=1) # global average pooling
         x = self.fc_layer(x)
 

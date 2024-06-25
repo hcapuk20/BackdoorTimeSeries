@@ -75,6 +75,12 @@ def get_bd_model(args, train_data, test_data):
     args.numb_class = train_data.num_cls
     print('enc_in',args.enc_in,'seq_len',args.seq_len)
     args.num_class = len(train_data.class_names)
+    train_p,test_p = train_data.dist_p, test_data.dist_p
+    print('train data distribution:')
+    print(train_p)
+    print('test data distribution: ')
+    print(test_p)
+    ############## Surrogate Classifier ################################
     # model init
     model_sur = model_dict[args.model_sur](args).float().to(args.device)
     ############## Trigger Network ################################
@@ -252,7 +258,8 @@ def run(args):
         clean_model.eval()
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args)
         print('Test CA:', clean_test_acc, 'Test ASR:', bd_accuracy_test)
-
+    clean_test_acc_def, bd_accuracy_test_def = defence_test(bd_generator, clean_model,bd_loader_clean, test_loader, args)
+    print('defences :', clean_test_acc_def, bd_accuracy_test_def)
     if args.root_path.split('/')[-2] != 'UWaveGestureLibrary':
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
     return clean_test_acc, bd_accuracy_test,bd_generator
