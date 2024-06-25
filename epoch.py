@@ -292,7 +292,7 @@ def epoch(bd_model,surr_model, loader, args, opt=None,opt2=None,train=True): ###
             loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
             loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
             loss_reg = l2_reg(trigger_clip, trigger)
-            loss_reg += fftreg(batch_x, batch_x + trigger_clip) ### we can add fft reg for extra regularizer
+            loss_reg = loss_reg + fftreg(batch_x, batch_x + trigger_clip) ### we can add fft reg for extra regularizer
             loss = loss_clean + loss_bd + loss_reg
             loss_dict['CE_c'].append(loss_clean.item())
             loss_dict['CE_bd'].append(loss_bd.item())
