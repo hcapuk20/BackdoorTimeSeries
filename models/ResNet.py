@@ -34,7 +34,7 @@ class ResNetClassifier(nn.Module):
         super().__init__()
         self.layer1 = ResBlock(configs, configs.seq_len, 64, False)
         self.layer2 = ResBlock(configs, 64, 128, False)
-        self.layer3 = ResBlock(configs, 128, 128, 128)
+        self.layer3 = ResBlock(configs, 128, 128, False)
         self.fc_layer = nn.Linear(configs.enc_in, configs.num_class)
 
     def forward(self, x, padding_mask=None, x_dec=None, x_mark_dec=None, mask=None):
