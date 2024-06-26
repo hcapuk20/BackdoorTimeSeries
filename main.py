@@ -260,10 +260,13 @@ def run(args):
         clean_model.eval()
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args)
         print('Test CA:', clean_test_acc, 'Test ASR:', bd_accuracy_test)
-    clean_test_acc_def, bd_accuracy_test_def = defence_test_fp(bd_generator, clean_model,bd_loader_clean, test_loader, args)
+    ## prepare validation data and defence test
+    _,val_data = torch.utils.data.random_split(train_data, [.8, .2])
+    val_loader = custom_data_loader(val_data, args, flag='test', force_bs=bs)
+    clean_test_acc_def, bd_accuracy_test_def = defence_test_fp(bd_generator, clean_model,val_loader, test_loader, args)
     print('defences :', clean_test_acc_def, bd_accuracy_test_def)
-    if args.root_path.split('/')[-2] != 'UWaveGestureLibrary':
-        clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
+    # one final test epoch to save plots.
+    clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
     return clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def,bd_generator
 
 
