@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-class ResidualBlock(nn.Module):
+class ResidualBlock(nn.Module): ##ResidualBlock consist of conv1d, batchnorm and relu
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1):
         super(ResidualBlock, self).__init__()
         self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size, stride, padding)
@@ -29,8 +29,9 @@ class ResidualBlock(nn.Module):
 
 class ResNet(nn.Module):
     def __init__(self, configs):
-        self.num_channels = configs.enc_in
+        self.num_channels = configs.enc_in # num channels is equal to number of multivariate.
         self.num_classes = configs.num_class
+        ## convolution done on time
         super(ResNet, self).__init__()
         self.layer1 = self.make_layer(ResidualBlock, self.num_channels, 64, 2)
         self.layer2 = self.make_layer(ResidualBlock, 64, 128, 2)
