@@ -1,7 +1,15 @@
 '''
 This is the implement of pruning proposed in [1].
 [1] Fine-Pruning: Defending Against Backdooring Attacks on Deep Neural Networks. RAID, 2018.
+
 '''
+
+##### Q1 do we prune weights or neurons (seems neurons)
+
+
+
+
+
 
 import os
 import torch
@@ -70,6 +78,7 @@ class Pruning(Base):
             hook.remove()
 
         container = torch.cat(container, dim=0)
+        ###### structured prunning -> prune filter-wise that is over channel (by taking mean over batch and temporal domain) #####
         activation = torch.mean(container, dim=[0,2])
         seq_sort = torch.argsort(activation)
         num_channels = len(activation)
