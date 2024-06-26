@@ -15,3 +15,20 @@ class LSTMClassifier(nn.Module):
         out, _ = self.lstm(x, (h0, c0))
         out = self.fc(out[:, -1, :])
         return out
+
+
+
+class LSTMClassifier(nn.Module):
+    def __init__(self, configs):
+        super(LSTMClassifier, self).__init__()
+        self.num_channels = configs.enc_in
+        self.hidden_size = 512
+        self.num_layers = configs.e_layers
+        self.num_classes = configs.num_class
+        self.lstm = nn.LSTM(input_size=self.num_channels, hidden_size=self.hidden_size, num_layers=self.num_layers, batch_first=True)
+        self.fc = nn.Linear(self.hidden_size, self.num_classes)
+
+    def forward(self, x):
+        out, _ = self.lstm(x)
+        out = self.fc(out[:, -1, :])
+        return out
