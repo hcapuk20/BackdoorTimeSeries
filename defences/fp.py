@@ -44,12 +44,9 @@ class Pruning(Base):
 
 
     def repair(self,device):
-        """pruning.
-        Args:
-            schedule (dict): Schedule for testing.
+        """"
+        This is for the model with the structure of Resnet
         """
-
-
         model = self.model.to(device)
         layer_to_prune = self.layer
         tr_loader = self.train_loader
@@ -92,12 +89,9 @@ class Pruning(Base):
 
 
     def repair2(self,device):
-        """pruning.
-        Args:
-            schedule (dict): Schedule for testing.
         """
-
-
+        This is for the model with the structure of Linear and Transformer
+        """
         model = self.model.to(device)
         #layer_to_prune = 'model'
         layer_to_prune = model.model[-1]
