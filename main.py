@@ -3,6 +3,8 @@ import os
 import random
 import numpy as np
 import torch.nn as nn
+import torch.optim.lr_scheduler
+
 from data_provider.data_factory import data_provider, custom_data_loader
 from models import * # Here we import the architecture
 from parameters import * # Here we import the parameters
@@ -160,9 +162,12 @@ def run(args):
         if args.train_mode != 'basic':
             opt_bd = torch.optim.AdamW(bd_model.trigger.parameters(), lr=args.lr)
             opt_surr = torch.optim.AdamW(surr_model.parameters(), lr=args.lr)
+            schedular_bd = torch.optim.lr_scheduler.CosineAnnealingLR(opt_bd, T_max=args.train_epochs, eta_min=1e-6)
+            schedular_surr = torch.optim.lr_scheduler.MultiStepLR(opt_surr, milestones=[args.train_epochs // 2], gamma=0.1)
         else:
             collective_params = list(surr_model.parameters()) + list(bd_model.parameters())
             opt_bd = torch.optim.AdamW(collective_params, lr=args.lr)
+            schedular_bd = torch.optim.lr_scheduler.CosineAnnealingLR(opt_bd, T_max=args.train_epochs, eta_min=1e-6)
         for i in tqdm(range(args.train_epochs)):
             ########### Here train the trigger while also update the surrogate classifier #########
             if args.train_mode == 'basic':
@@ -186,6 +191,9 @@ def run(args):
                 test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_lam_cross(bd_model, bd_model_prev, surr_model,
                                                                                 test_loader, args, train=False)
                 ############################################
+            schedular_bd.step()
+            if schedular_surr is not None:
+                schedular_surr.step()
             print('Train Loss', train_loss, 'Train acc', train_acc, 'Test Loss', test_loss, 'Test acc', test_acc)
             print('Backdoor Train', bd_train_acc, 'Backdoor Test', bd_test_acc)
             ce_c_train, ce_c_test = np.average(train_dic['CE_c']), np.average(test_dic['CE_c'])
