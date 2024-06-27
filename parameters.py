@@ -35,11 +35,11 @@ def args_parser():
     parser.add_argument('--task_name', type=str, default='classification', help='Task to be performed.')
     
     ############ Training Parameters
-    parser.add_argument('--train_epochs', type=int, default= 1,help='number of training epochs for trigger generator')
-    parser.add_argument('--train_epochs_inj', type=int, default= 1,help='number of training epochs for backdoor injection')
+    parser.add_argument('--train_epochs', type=int, default= 200,help='number of training epochs for trigger generator')
+    parser.add_argument('--train_epochs_inj', type=int, default= 200,help='number of training epochs for backdoor injection')
     parser.add_argument('--batch_size', type=int, default=40, help='batch size of train input data')
     parser.add_argument('--L2_reg', type=float, default=0, help='L2 regularization for the generated trigger')
-    parser.add_argument('--cos_reg', type=float, default=1, help='cosine regularization for the generated trigger')
+    parser.add_argument('--cos_reg', type=float, default=0, help='cosine regularization for the generated trigger')
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
     parser.add_argument('--wd', type=float, default=0.01, help="weight decay")
