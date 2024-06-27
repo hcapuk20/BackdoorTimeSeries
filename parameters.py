@@ -7,11 +7,12 @@ def args_parser():
     # threding params
     parser.add_argument('--worker_per_device', type=int, default=1, help='parallel processes per device')
     parser.add_argument('--excluded_gpus', type=list, default=[], help='bypassed gpus')
+    parser.add_argument('--use_gpu', type=bool, default=True, help='bypassed gpus')
 
     #parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
     parser.add_argument('--model', type=str, default='resnet', help='NN model')
     parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
-    parser.add_argument('--bd_model', type=str, default='patchdyn', help='trigger generator model. patchtst or inverted')
+    parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
     parser.add_argument('--train_mode', type=str, default='marksman_lam',
                         help='basic: single loss single optimizer,'
                              '2opt: single loss two optimizers,'
@@ -23,7 +24,7 @@ def args_parser():
     parser.add_argument('--target_label', type=int, default=0, help='targeted label')
     parser.add_argument('--load_bd_model', type=str, default=None, help='path to the bd model weights')
     parser.add_argument('--label_smooth', type=float, default=0., help='label smoothing')
-    parser.add_argument('--silent_poisoning', type=bool, default=True, help='label smoothing')
+    parser.add_argument('--silent_poisoning', type=bool, default=True, help='')
 
 
     # Training or testing
@@ -34,7 +35,8 @@ def args_parser():
     parser.add_argument('--task_name', type=str, default='classification', help='Task to be performed.')
     
     ############ Training Parameters
-    parser.add_argument('--train_epochs', type=int, default= 1)
+    parser.add_argument('--train_epochs', type=int, default= 1,help='number of training epochs for trigger generator')
+    parser.add_argument('--train_epochs_inj', type=int, default= 1,help='number of training epochs for backdoor injection')
     parser.add_argument('--batch_size', type=int, default=40, help='batch size of train input data')
     parser.add_argument('--L2_reg', type=float, default=0, help='L2 regularization for the generated trigger')
     parser.add_argument('--cos_reg', type=float, default=1, help='cosine regularization for the generated trigger')
@@ -103,7 +105,6 @@ def args_parser():
     parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
 
     # GPU
-    parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
     parser.add_argument('--gpu', type=int, default=0, help='gpu')
     parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)
     parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')

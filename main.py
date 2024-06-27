@@ -248,7 +248,7 @@ def run(args):
     optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr)
 
 
-    for i in tqdm(range(200)):
+    for i in tqdm(range(args.train_epochs_inj)):
         clean_model.train()
         ### Train epoch with clean data and backdoor datasets.
         if args.silent_poisoning:
