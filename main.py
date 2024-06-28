@@ -33,6 +33,7 @@ from epoch_cross import epoch_marksman_lam_cross
 
 model_dict = {
     'TimesNet': TimesNet,
+    'timesnet': TimesNet,
     'FEDformer': FEDformer,
     'Informer': Informer,
     'itransformer': iTransformer,
@@ -163,7 +164,7 @@ def run(args):
             opt_bd = torch.optim.AdamW(bd_model.trigger.parameters(), lr=args.lr)
             opt_surr = torch.optim.AdamW(surr_model.parameters(), lr=args.lr)
             schedular_bd = torch.optim.lr_scheduler.CosineAnnealingLR(opt_bd, T_max=args.train_epochs, eta_min=1e-6)
-            schedular_surr = torch.optim.lr_scheduler.MultiStepLR(opt_surr, milestones=[args.train_epochs // 2], gamma=0.1)
+            #schedular_surr = torch.optim.lr_scheduler.MultiStepLR(opt_surr, milestones=[args.train_epochs // 2], gamma=0.1)
         else:
             collective_params = list(surr_model.parameters()) + list(bd_model.parameters())
             opt_bd = torch.optim.AdamW(collective_params, lr=args.lr)
@@ -192,8 +193,6 @@ def run(args):
                                                                                 test_loader, args, train=False)
                 ############################################
             schedular_bd.step()
-            if schedular_surr is not None:
-                schedular_surr.step()
             print('Train Loss', train_loss, 'Train acc', train_acc, 'Test Loss', test_loss, 'Test acc', test_acc)
             print('Backdoor Train', bd_train_acc, 'Backdoor Test', bd_test_acc)
             ce_c_train, ce_c_test = np.average(train_dic['CE_c']), np.average(test_dic['CE_c'])
