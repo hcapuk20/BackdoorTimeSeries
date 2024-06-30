@@ -5,15 +5,17 @@ import numpy as np
 import torchvision
 
 class RegressionModel(nn.Module):
-    def __init__(self, opt, init_mask, init_pattern):
+    def __init__(self, opt,classifier, init_mask, init_pattern):
         self._EPSILON = opt.EPSILON
         super(RegressionModel, self).__init__()
         self.mask_tanh = nn.Parameter(torch.tensor(init_mask))
         self.pattern_tanh = nn.Parameter(torch.tensor(init_pattern))
-
-        self.classifier = self._get_classifier(opt)
+        for p in classifier.parameters():
+            p.requires_grad = False
+        self.classifier = classifier.eval()
 
     def forward(self, x):
+        #### normalization needed ??????????
         mask = self.get_raw_mask()
         pattern = self.get_raw_pattern()
         x = (1 - mask) * x + mask * pattern
@@ -213,4 +215,4 @@ def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt):
     # Check early stop
 
 
-    return inner_early_stop_flag
+    return
