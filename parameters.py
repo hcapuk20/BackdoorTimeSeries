@@ -21,6 +21,8 @@ def args_parser():
     parser.add_argument('--poisoning_ratio_train', type=float, default=1, help='Poisoning ratio of the batch in the trining phase')
     parser.add_argument('--clip_ratio', type=float, default=0.1, help='Poisoning ratio')
     parser.add_argument('--bd_type', type=str, default='all2one', help='all2one or all2all')
+    parser.add_argument('--trainable_token', type=bool, default=True, help='all2all trains token')
+    parser.add_argument('--token_hook', type=float, default=1e-2, help='token hook for grad multiplier')
     parser.add_argument('--target_label', type=int, default=0, help='targeted label')
     parser.add_argument('--load_bd_model', type=str, default=None, help='path to the bd model weights')
     parser.add_argument('--label_smooth', type=float, default=0., help='label smoothing')

@@ -45,7 +45,10 @@ class Model(nn.Module):
         self.numb_class = configs.numb_class
         self.clip_ratio = configs.clip_ratio
         self.d_model = configs.d_model
-        self.target_token = torch.nn.Parameter(torch.Tensor(configs.numb_class,configs.d_model), requires_grad=True) # C (numb_class x d_model) size matrix of trainable weights of target tokens
+        self.target_token = torch.nn.Parameter(torch.Tensor(configs.numb_class,configs.d_model), requires_grad=configs.trainable_token) # C (numb_class x d_model) size matrix of trainable weights of target tokens
+        nn.init.orthogonal_(self.target_token)
+        if configs.trainable_token:
+            h = self.target_token.register_hook(lambda grad: grad * configs.token_hook)
         ######### initialize tokens ##### 
         padding = stride
 

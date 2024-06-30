@@ -12,14 +12,10 @@ class RegressionModel(nn.Module):
         self.pattern_tanh = nn.Parameter(torch.tensor(init_pattern))
 
         self.classifier = self._get_classifier(opt)
-        self.normalizer = self._get_normalize(opt)
-        self.denormalizer = self._get_denormalize(opt)
 
     def forward(self, x):
         mask = self.get_raw_mask()
         pattern = self.get_raw_pattern()
-        if self.normalizer:
-            pattern = self.normalizer(self.get_raw_pattern())
         x = (1 - mask) * x + mask * pattern
         return self.classifier(x)
 
@@ -31,108 +27,8 @@ class RegressionModel(nn.Module):
         pattern = nn.Tanh()(self.pattern_tanh)
         return pattern / (2 + self._EPSILON) + 0.5
 
-    def _get_classifier(self, opt):
-        if opt.dataset == "mnist":
-            classifier = NetC_MNIST()
-        elif opt.dataset == "cifar10":
-            classifier = PreActResNet18()
-        elif opt.dataset == "gtsrb":
-            classifier = PreActResNet18(num_classes=43)
-        elif opt.dataset == "celeba":
-            classifier = ResNet18()
-        else:
-            raise Exception("Invalid Dataset")
-        # Load pretrained classifie
-        ckpt_path = os.path.join(
-            opt.checkpoints, opt.dataset, "{}_{}_morph.pth.tar".format(opt.dataset, opt.attack_mode)
-        )
-
-        state_dict = torch.load(ckpt_path)
-        classifier.load_state_dict(state_dict["netC"])
-        for param in classifier.parameters():
-            param.requires_grad = False
-        classifier.eval()
-        return classifier.to(opt.device)
-
-    def _get_denormalize(self, opt):
-        if opt.dataset == "cifar10":
-            denormalizer = Denormalize(opt, [0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261])
-        elif opt.dataset == "mnist":
-            denormalizer = Denormalize(opt, [0.5], [0.5])
-        elif opt.dataset == "gtsrb" or opt.dataset == "celeba":
-            denormalizer = None
-        else:
-            raise Exception("Invalid dataset")
-        return denormalizer
-
-    def _get_normalize(self, opt):
-        if opt.dataset == "cifar10":
-            normalizer = Normalize(opt, [0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261])
-        elif opt.dataset == "mnist":
-            normalizer = Normalize(opt, [0.5], [0.5])
-        elif opt.dataset == "gtsrb" or opt.dataset == "celeba":
-            normalizer = None
-        else:
-            raise Exception("Invalid dataset")
-        return normalizer
 
 
-class Recorder:
-    def __init__(self, opt):
-        super().__init__()
-
-        # Best optimization results
-        self.mask_best = None
-        self.pattern_best = None
-        self.reg_best = float("inf")
-
-        # Logs and counters for adjusting balance cost
-        self.logs = []
-        self.cost_set_counter = 0
-        self.cost_up_counter = 0
-        self.cost_down_counter = 0
-        self.cost_up_flag = False
-        self.cost_down_flag = False
-
-        # Counter for early stop
-        self.early_stop_counter = 0
-        self.early_stop_reg_best = self.reg_best
-
-        # Cost
-        self.cost = opt.init_cost
-        self.cost_multiplier_up = opt.cost_multiplier
-        self.cost_multiplier_down = opt.cost_multiplier ** 1.5
-
-    def reset_state(self, opt):
-        self.cost = opt.init_cost
-        self.cost_up_counter = 0
-        self.cost_down_counter = 0
-        self.cost_up_flag = False
-        self.cost_down_flag = False
-        print("Initialize cost to {:f}".format(self.cost))
-
-    def save_result_to_dir(self, opt):
-        result_dir = os.path.join(opt.result, opt.dataset)
-        if not os.path.exists(result_dir):
-            os.makedirs(result_dir)
-        result_dir = os.path.join(result_dir, opt.attack_mode)
-        if not os.path.exists(result_dir):
-            os.makedirs(result_dir)
-        result_dir = os.path.join(result_dir, str(opt.target_label))
-        if not os.path.exists(result_dir):
-            os.makedirs(result_dir)
-
-        pattern_best = self.pattern_best
-        mask_best = self.mask_best
-        trigger = pattern_best * mask_best
-
-        path_mask = os.path.join(result_dir, "mask.png")
-        path_pattern = os.path.join(result_dir, "pattern.png")
-        path_trigger = os.path.join(result_dir, "trigger.png")
-
-        torchvision.utils.save_image(mask_best, path_mask, normalize=True)
-        torchvision.utils.save_image(pattern_best, path_pattern, normalize=True)
-        torchvision.utils.save_image(trigger, path_trigger, normalize=True)
 
 
 def outlier_detection(l1_norm_list, idx_mapping, opt):
@@ -195,26 +91,58 @@ def main(args,shape,classifier):
 
 
 
+class Recorder:
+    def __init__(self, opt):
+        super().__init__()
+
+        # Best optimization results
+        self.mask_best = None
+        self.pattern_best = None
+        self.reg_best = float("inf")
+
+        # Logs and counters for adjusting balance cost
+        self.logs = []
+        self.cost_set_counter = 0
+        self.cost_up_counter = 0
+        self.cost_down_counter = 0
+        self.cost_up_flag = False
+        self.cost_down_flag = False
+
+        # Counter for early stop
+        self.early_stop_counter = 0
+        self.early_stop_reg_best = self.reg_best
+
+        # Cost
+        self.cost = opt.init_cost
+        self.cost_multiplier_up = opt.cost_multiplier
+        self.cost_multiplier_down = opt.cost_multiplier ** 1.5
+
+    def reset_state(self, opt):
+        self.cost = opt.init_cost
+        self.cost_up_counter = 0
+        self.cost_down_counter = 0
+        self.cost_up_flag = False
+        self.cost_down_flag = False
+        print("Initialize cost to {:f}".format(self.cost))
 
 
 def train(args,classifier, loader, init_mask, init_pattern):
     # Load the model
 
     # Build regression model
-    regression_model = RegressionModel(args, init_mask, init_pattern).to(opt.device)
+    regression_model = RegressionModel(args, init_mask, init_pattern).to(args.device)
 
     # Set optimizer
-    optimizerR = torch.optim.Adam(regression_model.parameters(), lr=opt.lr, betas=(0.5, 0.9))
+    optimizerR = torch.optim.Adam(regression_model.parameters(), lr=0.001, betas=(0.5, 0.9))
 
     # Set recorder (for recording best result)
+    recorder = Recorder(args)
 
-    for epoch in range(opt.epoch):
+    for epoch in range(5):
         train_step(regression_model, optimizerR, loader, epoch,args)
 
     # Save result to dir
-    recorder.save_result_to_dir(opt)
-
-    return recorder, opt
+    return
 
 
 def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt):
