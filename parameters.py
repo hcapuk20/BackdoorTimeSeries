@@ -10,8 +10,8 @@ def args_parser():
     parser.add_argument('--use_gpu', type=bool, default=True, help='bypassed gpus')
 
     #parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
-    parser.add_argument('--model', type=str, default='resnet', help='NN model')
-    parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
+    parser.add_argument('--model', type=str, default='resnet2', help='NN model')
+    parser.add_argument('--model_sur', type=str, default='resnet2', help='surrogate model in the BD model')
     parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
     parser.add_argument('--train_mode', type=str, default='marksman_lam',
                         help='basic: single loss single optimizer,'
@@ -49,7 +49,7 @@ def args_parser():
 
     # data loader
     parser.add_argument('--data', type=str, required=False, default='UEA', help='dataset type')
-    parser.add_argument('--root_path', type=str, default='./dataset/JapaneseVowels/', help='root path of the data file')
+    parser.add_argument('--root_path', type=str, default='./dataset/Heartbeat/', help='root path of the data file')
     parser.add_argument('--data_path', type=str, default='ETTm1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')

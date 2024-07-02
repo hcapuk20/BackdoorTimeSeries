@@ -28,6 +28,7 @@ from tqdm import tqdm
 from epoch import *
 from utils.save_results import save_results
 from utils.plot import plot_time_series
+from utils.visualize import visualize
 from copy import deepcopy
 from epoch_cross import epoch_marksman_lam_cross
 
@@ -169,7 +170,7 @@ def run(args):
             collective_params = list(surr_model.parameters()) + list(bd_model.parameters())
             opt_bd = torch.optim.AdamW(collective_params, lr=args.lr)
             schedular_bd = torch.optim.lr_scheduler.CosineAnnealingLR(opt_bd, T_max=args.train_epochs, eta_min=1e-6)
-        for i in tqdm(range(args.train_epochs)):
+        for i in tqdm(range(1)):
             ########### Here train the trigger while also update the surrogate classifier #########
             if args.train_mode == 'basic':
                 train_loss, train_dic, train_acc, bd_train_acc = epoch(bd_model, surr_model, train_loader, args, opt_bd,None)
@@ -255,7 +256,7 @@ def run(args):
     optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr)
 
 
-    for i in tqdm(range(args.train_epochs_inj)):
+    for i in tqdm(range(1)):
         clean_model.train()
         ### Train epoch with clean data and backdoor datasets.
         if args.silent_poisoning:
@@ -273,7 +274,7 @@ def run(args):
     clean_test_acc_def, bd_accuracy_test_def = defence_test_fp(bd_generator, clean_model,val_loader, test_loader, args)
     print('defences :', clean_test_acc_def, bd_accuracy_test_def)
     # one final test epoch to save plots.
-    clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
+    clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series, visualize)
     return clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def,bd_generator
 
 
