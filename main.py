@@ -170,7 +170,7 @@ def run(args):
             collective_params = list(surr_model.parameters()) + list(bd_model.parameters())
             opt_bd = torch.optim.AdamW(collective_params, lr=args.lr)
             schedular_bd = torch.optim.lr_scheduler.CosineAnnealingLR(opt_bd, T_max=args.train_epochs, eta_min=1e-6)
-        for i in tqdm(range(1)):
+        for i in tqdm(range(args.train_epochs)):
             ########### Here train the trigger while also update the surrogate classifier #########
             if args.train_mode == 'basic':
                 train_loss, train_dic, train_acc, bd_train_acc = epoch(bd_model, surr_model, train_loader, args, opt_bd,None)
@@ -256,7 +256,7 @@ def run(args):
     optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr)
 
 
-    for i in tqdm(range(1)):
+    for i in tqdm(range(args.train_epochs_inj)):
         clean_model.train()
         ### Train epoch with clean data and backdoor datasets.
         if args.silent_poisoning:
