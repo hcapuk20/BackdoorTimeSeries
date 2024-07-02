@@ -3,7 +3,6 @@ import numpy as np
 import torch.nn as nn
 from utils.model_ops import *
 from defences.fp import Pruning
-from defences.strip import *
 
 ################
 '''
@@ -598,21 +597,3 @@ def defence_test_fp(bd_model,clean_model,train_loader,test_loader,args): ## for 
     clean_accuracy = cal_accuracy(predictions, trues)
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     return clean_accuracy,bd_accuracy
-
-
-def defence_test_strip(bd_model, clean_model, train_loader, test_loader, args):
-    bd_label = args.target_label
-    cleans = []
-    poisoneds = []
-    for i, (batch_x, label, padding_mask) in enumerate(test_loader):
-        clean_model.zero_grad()
-        batch_x = batch_x.float().to(args.device)
-        padding_mask = padding_mask.float().to(args.device)
-        label = label.to(args.device)
-        target_labels = torch.ones_like(label) * bd_label
-        trigger_x,trigger_clipped = bd_model(batch_x, padding_mask, None, None,target_labels)
-        bd_batch = batch_x + trigger_clipped
-        cleans.append(batch_x)
-        poisoneds.append(bd_batch)
-
-    return None
