@@ -1,6 +1,7 @@
 import argparse
 import torch
 
+
 def args_parser():
     parser = argparse.ArgumentParser()
 
@@ -9,16 +10,18 @@ def args_parser():
     parser.add_argument('--excluded_gpus', type=list, default=[], help='bypassed gpus')
     parser.add_argument('--use_gpu', type=bool, default=True, help='bypassed gpus')
 
-    #parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
-    parser.add_argument('--model', type=str, default='resnet', help='NN model')
-    parser.add_argument('--model_sur', type=str, default='TimesNet', help='surrogate model in the BD model')
-    parser.add_argument('--bd_model', type=str, default='patchtst', help='trigger generator model. patchtst or inverted')
+    # parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
+    parser.add_argument('--model', type=str, default='resnet2', help='NN model')
+    parser.add_argument('--model_sur', type=str, default='resnet2', help='surrogate model in the BD model')
+    parser.add_argument('--bd_model', type=str, default='patchtst',
+                        help='trigger generator model. patchtst or inverted')
     parser.add_argument('--train_mode', type=str, default='marksman_lam',
                         help='basic: single loss single optimizer,'
                              '2opt: single loss two optimizers,'
                              'marksman: iterative training')
     parser.add_argument('--poisoning_ratio', type=float, default=0.1, help='Poisoning ratio')
-    parser.add_argument('--poisoning_ratio_train', type=float, default=1, help='Poisoning ratio of the batch in the trining phase')
+    parser.add_argument('--poisoning_ratio_train', type=float, default=1,
+                        help='Poisoning ratio of the batch in the trining phase')
     parser.add_argument('--clip_ratio', type=float, default=0.1, help='Poisoning ratio')
     parser.add_argument('--bd_type', type=str, default='all2one', help='all2one or all2all')
     parser.add_argument('--trainable_token', type=bool, default=True, help='all2all trains token')
@@ -28,17 +31,17 @@ def args_parser():
     parser.add_argument('--label_smooth', type=float, default=0., help='label smoothing')
     parser.add_argument('--silent_poisoning', type=bool, default=True, help='')
 
-
     # Training or testing
     parser.add_argument('--is_training', type=int, default=1, help='Running mode')
     parser.add_argument('--warm_up', type=bool, default=True, help='warm up the surrogate model')
     parser.add_argument('--freeze_surrogate', type=bool, default=False, help='surrogate after warm up')
     # task name added for easy use with data provider
     parser.add_argument('--task_name', type=str, default='classification', help='Task to be performed.')
-    
+
     ############ Training Parameters
-    parser.add_argument('--train_epochs', type=int, default= 200,help='number of training epochs for trigger generator')
-    parser.add_argument('--train_epochs_inj', type=int, default= 200,help='number of training epochs for backdoor injection')
+    parser.add_argument('--train_epochs', type=int, default=1, help='number of training epochs for trigger generator')
+    parser.add_argument('--train_epochs_inj', type=int, default=200,
+                        help='number of training epochs for backdoor injection')
     parser.add_argument('--batch_size', type=int, default=40, help='batch size of train input data')
     parser.add_argument('--L2_reg', type=float, default=0, help='L2 regularization for the generated trigger')
     parser.add_argument('--cos_reg', type=float, default=0, help='cosine regularization for the generated trigger')
@@ -95,7 +98,6 @@ def args_parser():
     parser.add_argument('--channel_independence', type=int, default=0,
                         help='1: channel dependence 0: channel independence for FreTS model')
 
-
     # optimization
     parser.add_argument('--num_workers', type=int, default=1, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
@@ -121,7 +123,4 @@ def args_parser():
     ###
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
-
-
-        
     return args

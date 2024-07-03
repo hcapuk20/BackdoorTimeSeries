@@ -141,7 +141,7 @@ def train(args,classifier, loader, init_mask, init_pattern):
     recorder = Recorder(args)
 
     for epoch in range(5):
-        train_step(regression_model, optimizerR, loader, epoch,args)
+        train_step(regression_model, optimizerR, loader,recorder, epoch,args)
 
     # Save result to dir
     return

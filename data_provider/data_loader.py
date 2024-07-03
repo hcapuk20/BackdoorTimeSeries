@@ -11,6 +11,7 @@ from .m4 import M4Dataset, M4Meta
 from .uea import subsample, interpolate_missing, Normalizer
 from sktime.datasets import load_from_tsfile_to_dataframe
 import warnings
+import math
 
 warnings.filterwarnings('ignore')
 
@@ -720,3 +721,61 @@ class UEAloader(Dataset): ## classification datasets employ this loader
 
     def __len__(self):
         return len(self.all_IDs)
+
+
+class UEAloader_bd(UEAloader):
+    def __init__(self, root_path,bd_model, file_list=None, limit_size=None, flag=None,poision_rate=0.1,silent_poision=False,
+                 target_label=0,max_len=0,enc_in=0):
+        super(UEAloader_bd, self).__init__(root_path, file_list, limit_size, flag)
+        self.max_len = max_len
+        self.enc_in = enc_in
+        self.root_path = root_path
+        self.all_df, self.labels_df = self.load_all(root_path, file_list=file_list, flag=flag)
+        self.all_IDs = self.all_df.index.unique()  # all sample IDs (integer indices 0 ... num_samples-1)
+
+        if limit_size is not None:
+            if limit_size > 1:
+                limit_size = int(limit_size)
+            else:  # interpret as proportion if in (0, 1]
+                limit_size = int(limit_size * len(self.all_IDs))
+            self.all_IDs = self.all_IDs[:limit_size]
+            self.all_df = self.all_df.loc[self.all_IDs]
+
+        # use all features
+        self.feature_names = self.all_df.columns
+        self.feature_df = self.all_df
+
+        # pre_process
+        normalizer = Normalizer()
+        self.feature_df = normalizer.normalize(self.feature_df)
+
+
+        self.G = bd_model.to('cpu')
+        self.G.eval()
+        self.total_bd = math.ceil(len(self.all_IDs) * poision_rate)
+        self.bd_inds = np.random.choice(self.all_IDs, self.total_bd, replace=False)
+        self.target_label = target_label
+        self.silent_bd_set = []
+        if silent_poision:
+            self.bd_inds,self.silent_bd_set = np.array_split(self.bd_inds,2)
+
+
+    def __getitem__(self, ind):
+        x = self.instance_norm(torch.from_numpy(self.feature_df.loc[self.all_IDs[ind]].values))
+        y = torch.from_numpy(self.labels_df.loc[self.all_IDs[ind]].values)
+        y_bd = y = torch.ones_like(y) * self.target_label
+        x_ = torch.zeros(self.max_len, self.enc_in)  # (batch_size, padded_length, feat_dim)
+        end = min(x.shape[0], self.max_len)
+        x_[:end, :] = x[:end, :]
+        x_ = x_.unsqueeze(0).float()
+        if ind in self.bd_inds:
+            y = y_bd
+            t, t_clipped = self.G(x_, None,None,None,y)
+            x_bd = x_ + t_clipped
+            x = x_bd.squeeze(0)
+        elif ind in self.silent_bd_set:
+            print('silent bd',x_.shape,x.shape)
+            t, t_clipped = self.G(x_, None, None, None, y_bd)
+            x_bd = x_ + t_clipped
+            x = x_bd.squeeze(0)
+        return x,y

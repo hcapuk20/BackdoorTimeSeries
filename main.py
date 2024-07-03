@@ -5,7 +5,7 @@ import numpy as np
 import torch.nn as nn
 import torch.optim.lr_scheduler
 
-from data_provider.data_factory import data_provider, custom_data_loader
+from data_provider.data_factory import data_provider, custom_data_loader,bd_data_provider
 from models import * # Here we import the architecture
 from parameters import * # Here we import the parameters
 from models.Informer import Model as Informer
@@ -238,40 +238,21 @@ def run(args):
 
     #### START OF THE NEW TRANING WITH TRAINED TRIGGER GENERATOR
     bd_generator.eval()
-    clean_ratio = 1 - args.poisoning_ratio
-    train_dataset, bd_dataset = torch.utils.data.random_split(train_data, [clean_ratio, args.poisoning_ratio])
-    bs = math.floor(args.batch_size * clean_ratio)
-    train_loader = custom_data_loader(train_dataset, args, flag='train', force_bs=bs)
-    bd_loader_clean = None
-    if args.silent_poisoning:
-        bd_bs = math.ceil(args.batch_size * args.poisoning_ratio / 2)
-        bd_dataset,bd_dataset_clean = torch.utils.data.random_split(bd_dataset, [0.5,0.5])
-        bd_loader = custom_data_loader(bd_dataset, args, flag='train', force_bs=bd_bs)
-        bd_loader_clean = custom_data_loader(bd_dataset_clean, args, flag='train', force_bs=bd_bs)
-    else:
-        bd_bs = math.ceil(args.batch_size * args.poisoning_ratio)
-        bd_loader = custom_data_loader(bd_dataset, args, flag='train', force_bs=bd_bs)
+    poisoned_data, bd_train_loader = bd_data_provider(args, 'train', deepcopy(bd_generator))
     clean_model = get_clean_model(args, train_data, test_data)
     optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr)
 
-
     for i in tqdm(range(args.train_epochs_inj)):
         clean_model.train()
-        ### Train epoch with clean data and backdoor datasets.
-        if args.silent_poisoning:
-            train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train_silent(bd_generator, clean_model, train_loader,
-                                                                          bd_loader,bd_loader_clean, args, optimizer)
-        else:
-            train_loss, train_accuracy, bd_accuracy_train = epoch_clean_train(bd_generator, clean_model, train_loader,
-                                                                           bd_loader, args, optimizer)
+        train_loss, train_accuracy, _ = epoch_clean_train2(clean_model,bd_train_loader,args,optimizer)
         clean_model.eval()
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args)
         print('Test CA:', clean_test_acc, 'Test ASR:', bd_accuracy_test)
     ## prepare validation data and defence test
     _,val_data = torch.utils.data.random_split(train_data, [.8, .2])
-    val_loader = custom_data_loader(val_data, args, flag='test', force_bs=bs)
+    val_loader = custom_data_loader(val_data, args, flag='train', force_bs=16)
     clean_test_acc_def, bd_accuracy_test_def = defence_test_fp(bd_generator, clean_model,val_loader, test_loader, args)
-    print('defences :', clean_test_acc_def, bd_accuracy_test_def)
+    print('defences | CA : {}, ASR : {}'.format( clean_test_acc_def, bd_accuracy_test_def))
     # one final test epoch to save plots.
     clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
     return clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def,bd_generator
