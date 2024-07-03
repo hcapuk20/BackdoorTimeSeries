@@ -774,7 +774,6 @@ class UEAloader_bd(UEAloader):
             x_bd = x_ + t_clipped
             x = x_bd.squeeze(0)
         elif ind in self.silent_bd_set:
-            print('silent bd',x_.shape,x.shape)
             t, t_clipped = self.G(x_, None, None, None, y_bd)
             x_bd = x_ + t_clipped
             x = x_bd.squeeze(0)
