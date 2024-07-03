@@ -219,7 +219,7 @@ class Model(nn.Module):
                       1, self.pred_len + self.seq_len, 1))
         return dec_out
 
-    def classification(self, x_enc, x_mark_enc):
+    def classification(self, x_enc, x_mark_enc, visualize=None):
         # embedding
         enc_out = self.enc_embedding(x_enc, None)  # [B,T,C]
         # TimesNet
@@ -235,10 +235,15 @@ class Model(nn.Module):
         output = output * x_mark_enc.unsqueeze(-1)
         # (batch_size, seq_length * d_model)
         output = output.reshape(output.shape[0], -1)
+        if visualize is not None:
+            latent = output
+            output = self.projection(output)
+            return output, latent
+        
         output = self.projection(output)  # (batch_size, num_classes)
         return output
 
-    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
+    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None, visualize=None):
         if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
             dec_out = self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
             return dec_out[:, -self.pred_len:, :]  # [B, L, D]
@@ -250,6 +255,9 @@ class Model(nn.Module):
             dec_out = self.anomaly_detection(x_enc)
             return dec_out  # [B, L, D]
         if self.task_name == 'classification':
+            if visualize is not None:
+                dec_out, latent = self.classification(x_enc, x_mark_enc, visualize)
+                return dec_out, latent
             dec_out = self.classification(x_enc, x_mark_enc)
             return dec_out  # [B, N]
         return None

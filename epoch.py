@@ -331,40 +331,78 @@ def epoch(bd_model,surr_model, loader, args, opt=None,opt2=None,train=True): ###
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     return total_loss,loss_dict, accuracy,bd_accuracy
 
-
-
-def epoch_clean_train2(model, loader, args,optimiser): #for training clean model with fraction of backdoored data
-    # loader here contains the backdoor generator, and generates trigger
-    # for the spesific indices in the dataset
-    model.train()
+def epoch_clean_train_silent(bd_model,clean_model, loader,loader_bd,loader_bd_clean, args,optimiser): #for training clean model with fraction of backdoored data
     total_loss = []
     preds = []
+    bd_preds = []
     trues = []
-    bd_accuracy = 0
+    backdoors = []
+    bd_label = args.target_label
+    nb_c = iter(loader_bd_clean)
+    nb = iter(loader_bd)
+    print()
+    cri = nn.CrossEntropyLoss()
     for i, (batch_x, label, padding_mask) in enumerate(loader):
-        model.zero_grad()
+        try:
+            bd_batch = next(nb)
+        except:
+            nb = iter(loader_bd)
+            bd_batch = next(nb)
+
+        try:
+            bd_batch_clean = next(nb_c)
+        except:
+            nb_c = iter(loader_bd_clean)
+            bd_batch_clean = next(nb_c)
+        #batch_x, label = data_clean
+        clean_model.zero_grad()
         batch_x = batch_x.float().to(args.device)
-        padding_mask = padding_mask.float().to(args.device)
+        bd_batch_clean = bd_batch_clean
+        bd_x,label_bd,padding_mask_bd = bd_batch
+        bd_x2, c_label_bd, padding_mask_bd2 = bd_batch_clean
+        bd_x = bd_x2.float().to(args.device)
+        c_label_bd = c_label_bd.float().to(args.device)
+        padding_mask,padding_mask_bd = padding_mask.float().to(args.device),padding_mask_bd.float().to(args.device)
+        padding_mask_bd2 = padding_mask_bd2.float().to(args.device)
+        bd_x = bd_x.to(args.device).float()
+        bd_x_c = bd_x2.to(args.device).float()
+        bs_1, bs_2, bs_3 = batch_x.size(0), bd_x.size(0),bd_x2.size(0)
+        label_bd = torch.ones_like(label_bd).to(args.device) * bd_label
+        trigger_x,trigger_clipped = bd_model(bd_x,padding_mask_bd,None,None,label_bd)
+        trigger_x_c, trigger_clipped_c = bd_model(bd_x_c, padding_mask_bd, None, None,label_bd)
+        alpha = torch.rand_like(bd_x_c).float() * .5
+        bd_batch_silent = alpha * (bd_x_c + trigger_clipped_c) + (1-alpha) * bd_x_c
+        bd_batch = bd_x + trigger_clipped
         label = label.to(args.device)
-        outs = model(batch_x, padding_mask, None, None)
-        loss = args.criterion(outs, label.long().squeeze(-1))
+        label_bd = torch.ones_like(label_bd).to(args.device) * bd_label
+        all_labels = torch.cat((label,c_label_bd,label_bd),dim=0)
+        padding_mask = torch.cat((padding_mask,padding_mask_bd,padding_mask_bd2),dim=0)
+        batch_x = torch.cat((batch_x,bd_batch_silent,bd_batch),dim=0)
+        outs2 = clean_model(batch_x, padding_mask,None,None)
+        loss = cri(outs2, all_labels.long().squeeze(-1))
         total_loss.append(loss.item())
-        preds.append(outs.detach())
+        preds.append(outs2.detach()[:bs_1])
+        bd_preds.append(outs2.detach()[-bs_2:])
         trues.append(label)
+        backdoors.append(label_bd)
         loss.backward()
         optimiser.step()
     total_loss = np.average(total_loss)
     preds = torch.cat(preds, 0)
+    bd_preds = torch.cat(bd_preds, 0)
     trues = torch.cat(trues, 0)
+    backdoors = torch.cat(backdoors, 0)
     probs = torch.nn.functional.softmax(
         preds)  # (total_samples, num_classes) est. prob. for each class and sample
     predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    bd_predictions = torch.argmax(torch.nn.functional.softmax(bd_preds), dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
     trues = trues.flatten().cpu().numpy()
     accuracy = cal_accuracy(predictions, trues)
+    bd_accuracy = cal_accuracy(bd_predictions, backdoors.flatten().cpu().numpy())
     return total_loss, accuracy, bd_accuracy
 
 
-def epoch_clean_test(bd_model,clean_model, loader,args,plot=None): ## for testing the backdoored clean model
+def epoch_clean_test(bd_model,clean_model, loader,args,plot=None, visualize=None): ## for testing the backdoored clean model
     preds = []
     bd_preds = []
     trues = []
@@ -492,131 +530,3 @@ def defence_test_fp(bd_model,clean_model,train_loader,test_loader,args): ## for 
     clean_accuracy = cal_accuracy(predictions, trues)
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     return clean_accuracy,bd_accuracy
-
-
-
-
-### Following epochs are deperecated and not used in the current version of the code
-
-def epoch_clean_train_silent(bd_model,clean_model, loader,loader_bd,loader_bd_clean, args,optimiser): #for training clean model with fraction of backdoored data
-    total_loss = []
-    preds = []
-    bd_preds = []
-    trues = []
-    backdoors = []
-    bd_label = args.target_label
-    nb_c = iter(loader_bd_clean)
-    nb = iter(loader_bd)
-    print()
-    cri = nn.CrossEntropyLoss()
-    for i, (batch_x, label, padding_mask) in enumerate(loader):
-        try:
-            bd_batch = next(nb)
-        except:
-            nb = iter(loader_bd)
-            bd_batch = next(nb)
-
-        try:
-            bd_batch_clean = next(nb_c)
-        except:
-            nb_c = iter(loader_bd_clean)
-            bd_batch_clean = next(nb_c)
-        #batch_x, label = data_clean
-        clean_model.zero_grad()
-        batch_x = batch_x.float().to(args.device)
-        bd_batch_clean = bd_batch_clean
-        bd_x,label_bd,padding_mask_bd = bd_batch
-        bd_x2, c_label_bd, padding_mask_bd2 = bd_batch_clean
-        bd_x = bd_x2.float().to(args.device)
-        c_label_bd = c_label_bd.float().to(args.device)
-        padding_mask,padding_mask_bd = padding_mask.float().to(args.device),padding_mask_bd.float().to(args.device)
-        padding_mask_bd2 = padding_mask_bd2.float().to(args.device)
-        bd_x = bd_x.to(args.device).float()
-        bd_x_c = bd_x2.to(args.device).float()
-        bs_1, bs_2, bs_3 = batch_x.size(0), bd_x.size(0),bd_x2.size(0)
-        label_bd = torch.ones_like(label_bd).to(args.device) * bd_label
-        trigger_x,trigger_clipped = bd_model(bd_x,padding_mask_bd,None,None,label_bd)
-        trigger_x_c, trigger_clipped_c = bd_model(bd_x_c, padding_mask_bd, None, None,label_bd)
-        alpha = torch.rand_like(bd_x_c).float() * .5
-        bd_batch_silent = alpha * (bd_x_c + trigger_clipped_c) + (1-alpha) * bd_x_c
-        bd_batch = bd_x + trigger_clipped
-        label = label.to(args.device)
-        label_bd = torch.ones_like(label_bd).to(args.device) * bd_label
-        all_labels = torch.cat((label,c_label_bd,label_bd),dim=0)
-        padding_mask = torch.cat((padding_mask,padding_mask_bd,padding_mask_bd2),dim=0)
-        batch_x = torch.cat((batch_x,bd_batch_silent,bd_batch),dim=0)
-        outs2 = clean_model(batch_x, padding_mask,None,None)
-        loss = cri(outs2, all_labels.long().squeeze(-1))
-        total_loss.append(loss.item())
-        preds.append(outs2.detach()[:bs_1])
-        bd_preds.append(outs2.detach()[-bs_2:])
-        trues.append(label)
-        backdoors.append(label_bd)
-        loss.backward()
-        optimiser.step()
-    total_loss = np.average(total_loss)
-    preds = torch.cat(preds, 0)
-    bd_preds = torch.cat(bd_preds, 0)
-    trues = torch.cat(trues, 0)
-    backdoors = torch.cat(backdoors, 0)
-    probs = torch.nn.functional.softmax(
-        preds)  # (total_samples, num_classes) est. prob. for each class and sample
-    predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
-    bd_predictions = torch.argmax(torch.nn.functional.softmax(bd_preds), dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
-    trues = trues.flatten().cpu().numpy()
-    accuracy = cal_accuracy(predictions, trues)
-    bd_accuracy = cal_accuracy(bd_predictions, backdoors.flatten().cpu().numpy())
-    return total_loss, accuracy, bd_accuracy
-
-
-def epoch_clean_train(bd_model,clean_model, loader,loader_bd, args,optimiser): #for training clean model with fraction of backdoored data
-    total_loss = []
-    preds = []
-    bd_preds = []
-    trues = []
-    backdoors = []
-    bd_label = args.target_label
-    nb = iter(loader_bd)
-    cri = nn.CrossEntropyLoss()
-    for i, (batch_x, label, padding_mask) in enumerate(loader):
-            try:
-                bd_batch = next(nb)
-            except:
-                nb = iter(loader_bd)
-                bd_batch = next(nb)
-            #batch_x, label = data_clean
-            clean_model.zero_grad()
-            batch_x = batch_x.float().to(args.device)
-            bd_x,label_bd,padding_mask_bd = bd_batch
-            padding_mask,padding_mask_bd = padding_mask.float().to(args.device),padding_mask_bd.float().to(args.device)
-            bd_x = bd_x.to(args.device).float()
-            bs_1, bs_2 = batch_x.size(0), bd_x.size(0)
-            trigger_x,trigger_clipped = bd_model(bd_x,padding_mask_bd,None,None)
-            bd_batch = bd_x + trigger_clipped
-            label = label.to(args.device)
-            label_bd = torch.ones_like(label_bd).to(args.device) * bd_label
-            all_labels = torch.cat((label,label_bd),dim=0)
-            padding_mask = torch.cat((padding_mask,padding_mask_bd),dim=0)
-            batch_x = torch.cat((batch_x,bd_batch),dim=0)
-            outs2 = clean_model(batch_x, padding_mask,None,None)
-            loss = cri(outs2, all_labels.long().squeeze(-1))
-            total_loss.append(loss.item())
-            preds.append(outs2.detach()[:bs_1])
-            bd_preds.append(outs2.detach()[bs_1:])
-            trues.append(label)
-            backdoors.append(label_bd)
-            loss.backward()
-            optimiser.step()
-    total_loss = np.average(total_loss)
-    preds = torch.cat(preds, 0)
-    bd_preds = torch.cat(bd_preds, 0)
-    trues = torch.cat(trues, 0)
-    backdoors = torch.cat(backdoors, 0)
-    probs = torch.nn.functional.softmax(
-        preds)  # (total_samples, num_classes) est. prob. for each class and sample
-    predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
-    bd_predictions = torch.argmax(torch.nn.functional.softmax(bd_preds), dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
-    trues = trues.flatten().cpu().numpy()
-    accuracy = cal_accuracy(predictions, trues)
-    bd_accuracy = cal_accuracy(bd_predictions, backdoors.flatten().cpu().numpy())
-    return total_loss, accuracy, bd_accuracy

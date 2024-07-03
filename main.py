@@ -28,6 +28,7 @@ from tqdm import tqdm
 from epoch import *
 from utils.save_results import save_results
 from utils.plot import plot_time_series
+from utils.visualize import visualize
 from copy import deepcopy
 from epoch_cross import epoch_marksman_lam_cross
 
@@ -254,7 +255,7 @@ def run(args):
     clean_test_acc_def, bd_accuracy_test_def = defence_test_fp(bd_generator, clean_model,val_loader, test_loader, args)
     print('defences | CA : {}, ASR : {}'.format( clean_test_acc_def, bd_accuracy_test_def))
     # one final test epoch to save plots.
-    clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
+    clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series, visualize)
     return clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def,bd_generator
 
 

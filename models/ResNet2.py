@@ -46,12 +46,16 @@ class ResNet(nn.Module):
             layers.append(block(out_channels, out_channels))
         return nn.Sequential(*layers)
 
-    def forward(self, x, padding_mask=None, x_dec=None, x_mark_dec=None):
+    def forward(self, x, padding_mask=None, x_dec=None, x_mark_dec=None, visualize=None):
         out = x.permute(0, 2, 1)
         out = self.layer1(out)
         out = self.layer2(out)
         out = self.layer3(out)
         out = self.avg_pool(out)
         out = out.view(out.size(0), -1)
+        if visualize is not None:
+            latent = out
         out = self.fc(out)
+        if visualize is not None:
+            return out, latent
         return out

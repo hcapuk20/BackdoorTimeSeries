@@ -23,13 +23,16 @@ from .base import Base
 
 # Define model pruning
 class MaskedLayer(nn.Module):
-    def __init__(self, base, mask):
+    def __init__(self, base, mask, model_type=None):
         super(MaskedLayer, self).__init__()
         self.base = base
         self.mask = mask
+        self.model_type = model_type
 
-    def forward(self, input):
+    def forward(self, input, **kwargs): # for param consistency
         #print(self.base(input).shape,self.mask.shape,self.mask.sum() / self.mask.numel())
+        if self.model_type == "Informer":
+            return self.base(input)[0] * self.mask, None
         return self.base(input) * self.mask
 
 
@@ -103,7 +106,13 @@ class Pruning(Base):
         """
         model = self.model.to(device)
         #layer_to_prune = 'model'
-        layer_to_prune = model.model[-1]
+        if self.args.model == "TimesNet":
+            layer_to_prune = model.model[-1]
+        elif self.args.model == "Informer":
+            layer_to_prune = model.encoder.attn_layers[-1]
+        else:
+            raise NotImplementedError("Unknown model for FP defence.")
+        
         tr_loader = self.train_loader
         prune_rate = self.prune_rate
 
@@ -124,7 +133,11 @@ class Pruning(Base):
                 model(batch_x.to(self.args.device),padding_mask.to(self.args.device),None,None)
             hook.remove()
 
-        container = torch.cat(container, dim=0)
+        if self.args.model == "TimesNet":
+            container = torch.cat(container, dim=0)
+        elif self.args.model == "Informer":
+            container = torch.cat([container[0][0]], dim=0)
+
         activation = torch.mean(container, dim=[0,1])
         seq_sort = torch.argsort(activation)
         dim_model = len(activation)
@@ -138,7 +151,10 @@ class Pruning(Base):
         #prune.custom_from_mask(getattr(model, layer_to_prune), name="weight", mask=mask)
 
         #setattr(layer_to_prune, 'model', MaskedLayer(layer_to_prune, mask))
-        model.model[-1] = MaskedLayer(layer_to_prune, mask)
+        if self.args.model == "TimesNet":
+            model.model[-1] = MaskedLayer(layer_to_prune, mask)
+        elif self.args.model == "Informer":
+            model.encoder.attn_layers[-1] = MaskedLayer(layer_to_prune, mask, model_type="Informer")
 
         self.model = model
         print("======== pruning complete ========")
