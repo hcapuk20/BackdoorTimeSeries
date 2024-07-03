@@ -749,32 +749,42 @@ class UEAloader_bd(UEAloader):
         normalizer = Normalizer()
         self.feature_df = normalizer.normalize(self.feature_df)
 
-
+        # get generator model and set to eval again
         self.G = bd_model.to('cpu')
         self.G.eval()
+        # calculate total indices to be poisioned
         self.total_bd = math.ceil(len(self.all_IDs) * poision_rate)
+        if self.total_bd % 2 != 0 and silent_poision:
+            self.total_bd += 1 # assert equal size of silent poison and normal poison
         self.bd_inds = np.random.choice(self.all_IDs, self.total_bd, replace=False)
         self.target_label = target_label
         self.silent_bd_set = []
-        if silent_poision:
+        if silent_poision: ## split the poisioned indices into two sets
             self.bd_inds,self.silent_bd_set = np.array_split(self.bd_inds,2)
 
 
     def __getitem__(self, ind):
+        # Original X and Y from the data
         x = self.instance_norm(torch.from_numpy(self.feature_df.loc[self.all_IDs[ind]].values))
         y = torch.from_numpy(self.labels_df.loc[self.all_IDs[ind]].values)
-        y_bd = y = torch.ones_like(y) * self.target_label
+        # target label
+        y_bd = torch.ones_like(y) * self.target_label
+        # zero input with max seq len and feature dim
         x_ = torch.zeros(self.max_len, self.enc_in)  # (batch_size, padded_length, feat_dim)
-        end = min(x.shape[0], self.max_len)
+        end = x.shape[0]
+        # original X zero-padded to max_len
         x_[:end, :] = x[:end, :]
         x_ = x_.unsqueeze(0).float()
         if ind in self.bd_inds:
-            y = y_bd
-            t, t_clipped = self.G(x_, None,None,None,y)
-            x_bd = x_ + t_clipped
+            ## if input selected as backdoor index
+            y = y_bd # change the label
+            t, t_clipped = self.G(x_, None,None,None,y_bd.unsqueeze(0)) # generate trigger
+            x_bd = x_ + t_clipped # add trigger to padded input
             x = x_bd.squeeze(0)
         elif ind in self.silent_bd_set:
-            t, t_clipped = self.G(x_, None, None, None, y_bd)
-            x_bd = x_ + t_clipped
+            ## if input selected as silent backdoor index (Does not change the label)
+            t, t_clipped = self.G(x_, None, None, None, y_bd.unsqueeze(0)) # generate trigger
+            x_bd = x_ + t_clipped # add trigger to padded input
             x = x_bd.squeeze(0)
+        #print(x.shape)
         return x,y
