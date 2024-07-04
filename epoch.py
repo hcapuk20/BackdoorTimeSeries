@@ -4,13 +4,7 @@ import torch.nn as nn
 from utils.model_ops import *
 from defences.fp import Pruning
 
-################
-'''
-TODO
-- bd and clean inputs should not be concatenated (done)
-- bd-model, separate trigger and surrogate classifier (done)
-- add 2 opt backdoor epoch
-'''
+
 ################# Related works with Code #############
 # Dynamic input-aware https://github.com/VinAIResearch/input-aware-backdoor-attack-release/blob/master/train.py
 # Label smoothing for backdoor -->> https://arxiv.org/pdf/2202.11203
@@ -261,12 +255,6 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
     return total_loss,loss_dict, accuracy,bd_accuracy
 
 
-
-
-
-
-
-
 def epoch(bd_model,surr_model, loader, args, opt=None,opt2=None,train=True): ##### The main training module
     total_loss = []
     all_preds = []
@@ -503,3 +491,5 @@ def defence_test_fp(bd_model,clean_model,train_loader,test_loader,args): ## for 
     clean_accuracy = cal_accuracy(predictions, trues)
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     return clean_accuracy,bd_accuracy
+
+
