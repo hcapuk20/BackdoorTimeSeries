@@ -1,6 +1,6 @@
 from data_provider.data_loader import Dataset_ETT_hour, Dataset_ETT_minute, Dataset_Custom, Dataset_M4, PSMSegLoader, \
-    MSLSegLoader, SMAPSegLoader, SMDSegLoader, SWATSegLoader, UEAloader,UEAloader_bd
-from data_provider.uea import collate_fn
+    MSLSegLoader, SMAPSegLoader, SMDSegLoader, SWATSegLoader, UEAloader,UEAloader_bd,UEAloader_bd2
+from data_provider.uea import collate_fn, collate_fn_bd
 from torch.utils.data import DataLoader
 
 data_dict = {
@@ -148,5 +148,38 @@ def bd_data_provider(args, flag,bd_model):
         pin_memory=True,
         drop_last=drop_last,
         collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
+    )
+    return data_set,data_loader
+
+
+def bd_data_provider2(args, flag,bd_model):
+    Data = UEAloader_bd2
+    timeenc = 0 if args.embed != 'timeF' else 1
+    bd_model.to('cpu')
+    if flag == 'test':
+        shuffle_flag = False
+        if args.task_name == 'anomaly_detection' or args.task_name == 'classification':
+            batch_size = args.batch_size
+        else:
+            batch_size = 1  # bsz=1 for evaluation
+        freq = args.freq
+    else:
+        shuffle_flag = True
+        batch_size = args.batch_size  # bsz for train and valid
+        freq = args.freq
+
+    drop_last = False
+    data_set = Data(bd_model=bd_model,poision_rate=args.poisoning_ratio,
+        silent_poision=args.silent_poisoning,target_label=args.target_label,
+        root_path=args.root_path, flag=flag
+    )
+
+    data_loader = DataLoader(
+        data_set,
+        batch_size=batch_size,
+        shuffle=shuffle_flag,
+        pin_memory=True,
+        drop_last=drop_last,
+        collate_fn=lambda x: collate_fn_bd(x,bd_model, max_len=args.seq_len,target_label=args.target_label)
     )
     return data_set,data_loader
