@@ -6,22 +6,26 @@ import torchvision
 
 class RegressionModel(nn.Module):
     def __init__(self, opt,classifier, init_mask, init_pattern):
+        ## dimensions??? for mask and pattern 
         self._EPSILON = opt.EPSILON
         super(RegressionModel, self).__init__()
+        ### Here we initialize mask and pattern which will be trained
+        ### pattern is the fix trigger to be learned
         self.mask_tanh = nn.Parameter(torch.tensor(init_mask))
         self.pattern_tanh = nn.Parameter(torch.tensor(init_pattern))
+        ### we train pattern and mask similar to adversarial learning (classifier is fixed)
         for p in classifier.parameters():
             p.requires_grad = False
         self.classifier = classifier.eval()
 
     def forward(self, x):
-        #### normalization needed ??????????
+        #### we can remove the mask
         mask = self.get_raw_mask()
         pattern = self.get_raw_pattern()
         x = (1 - mask) * x + mask * pattern
         return self.classifier(x)
 
-    def get_raw_mask(self):
+    def get_raw_mask(self): # for offseting to make values [0,1]
         mask = nn.Tanh()(self.mask_tanh)
         return mask / (2 + self._EPSILON) + 0.5
 
