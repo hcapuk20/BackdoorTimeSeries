@@ -88,6 +88,7 @@ def main(args,classifier,loader):
             masks.append(mask)
             idx_mapping[target_label] = len(masks) - 1
 
+        ## mask are None
         l1_norm_list = torch.stack([torch.sum(torch.abs(m)) for m in masks])
         print("{} labels found".format(len(l1_norm_list)))
         print("Norm values: {}".format(l1_norm_list))
