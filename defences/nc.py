@@ -5,9 +5,8 @@ import numpy as np
 import torchvision
 
 class RegressionModel(nn.Module):
-    def __init__(self, opt,classifier, init_mask, init_pattern):
-        ## dimensions??? for mask and pattern 
-        self._EPSILON = opt.EPSILON
+    def __init__(self,classifier, init_mask, init_pattern):
+        self._EPSILON = 1e-7
         super(RegressionModel, self).__init__()
         ### Here we initialize mask and pattern which will be trained
         ### pattern is the fix trigger to be learned
@@ -18,12 +17,11 @@ class RegressionModel(nn.Module):
             p.requires_grad = False
         self.classifier = classifier.eval()
 
-    def forward(self, x):
-        #### we can remove the mask
+    def forward(self, x,padding_mask):
         mask = self.get_raw_mask()
         pattern = self.get_raw_pattern()
         x = (1 - mask) * x + mask * pattern
-        return self.classifier(x)
+        return self.classifier(x,padding_mask, None,None)
 
     def get_raw_mask(self): # for offseting to make values [0,1]
         mask = nn.Tanh()(self.mask_tanh)
