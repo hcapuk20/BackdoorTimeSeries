@@ -5,7 +5,7 @@ import numpy as np
 import torch.nn as nn
 import torch.optim.lr_scheduler
 
-from data_provider.data_factory import data_provider, custom_data_loader,bd_data_provider
+from data_provider.data_factory import data_provider, custom_data_loader,bd_data_provider,bd_data_provider2
 from models import * # Here we import the architecture
 from parameters import * # Here we import the parameters
 from models.Informer import Model as Informer
@@ -239,14 +239,16 @@ def run(args):
 
     #### START OF THE NEW TRANING WITH TRAINED TRIGGER GENERATOR
     bd_generator.eval()
-    poisoned_data, bd_train_loader = bd_data_provider(args, 'train', deepcopy(bd_generator))
+    poisoned_data, bd_train_loader = bd_data_provider2(args, 'train', bd_generator)
     clean_model = get_clean_model(args, train_data, test_data)
     optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr)
 
     for i in tqdm(range(args.train_epochs_inj)):
         clean_model.train()
+        bd_generator.to('cpu')
         train_loss, train_accuracy, _ = epoch_clean_train2(clean_model,bd_train_loader,args,optimizer)
         clean_model.eval()
+        bd_generator.to(args.device)
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args)
         print('Test CA:', clean_test_acc, 'Test ASR:', bd_accuracy_test)
     ## prepare validation data and defence test
