@@ -35,7 +35,7 @@ class RegressionModel(nn.Module):
 
 
 
-def outlier_detection(l1_norm_list, idx_mapping, opt):
+def outlier_detection(l1_norm_list, idx_mapping):
     print("-" * 30)
     print("Determining whether model is backdoor")
 
@@ -67,13 +67,13 @@ def outlier_detection(l1_norm_list, idx_mapping, opt):
     )
 
 
-def main(args,shape,classifier):
+def main(args,classifier,loader):
 
     # init_mask = np.random.randn(1, opt.input_height, opt.input_width).astype(np.float32)
     # init_pattern = np.random.randn(opt.input_channel, opt.input_height, opt.input_width).astype(np.float32)
-
-    init_mask = np.ones((1, shape[1],shape[2])).astype(np.float32)
-    init_pattern = np.ones((shape)).astype(np.float32)
+    shape = (args.seq_len, args.enc_in)
+    init_mask = np.ones((1, shape[0],shape[1])).astype(np.float32)
+    init_pattern = np.ones(shape).astype(np.float32)
 
     for test in range(5):
         masks = []
@@ -82,7 +82,7 @@ def main(args,shape,classifier):
         for target_label in range(args.num_class):
             print("----------------- Analyzing label: {} -----------------".format(target_label))
             #args.target_label = target_label
-            recorder, opt = train(classifier, init_mask, init_pattern)
+            recorder, opt = train(args,classifier,loader, init_mask, init_pattern, target_label)
 
             mask = recorder.mask_best
             masks.append(mask)
@@ -91,7 +91,7 @@ def main(args,shape,classifier):
         l1_norm_list = torch.stack([torch.sum(torch.abs(m)) for m in masks])
         print("{} labels found".format(len(l1_norm_list)))
         print("Norm values: {}".format(l1_norm_list))
-        outlier_detection(l1_norm_list, idx_mapping, opt)
+        outlier_detection(l1_norm_list, idx_mapping)
 
 
 
@@ -117,24 +117,18 @@ class Recorder:
         self.early_stop_reg_best = self.reg_best
 
         # Cost
-        self.cost = opt.init_cost
-        self.cost_multiplier_up = opt.cost_multiplier
-        self.cost_multiplier_down = opt.cost_multiplier ** 1.5
-
-    def reset_state(self, opt):
-        self.cost = opt.init_cost
-        self.cost_up_counter = 0
-        self.cost_down_counter = 0
-        self.cost_up_flag = False
-        self.cost_down_flag = False
-        print("Initialize cost to {:f}".format(self.cost))
+        self.cost = 1e-3
+        self.cost_multiplier = 2.0
+        self.cost_multiplier_up = self.cost_multiplier
+        self.cost_multiplier_down = self.cost_multiplier ** 1.5
 
 
-def train(args,classifier, loader, init_mask, init_pattern):
+
+def train(args,classifier, loader, init_mask, init_pattern,target_label):
     # Load the model
 
     # Build regression model
-    regression_model = RegressionModel(args, init_mask, init_pattern).to(args.device)
+    regression_model = RegressionModel(classifier, init_mask, init_pattern).to(args.device)
 
     # Set optimizer
     optimizerR = torch.optim.Adam(regression_model.parameters(), lr=0.001, betas=(0.5, 0.9))
@@ -143,15 +137,16 @@ def train(args,classifier, loader, init_mask, init_pattern):
     recorder = Recorder(args)
 
     for epoch in range(5):
-        train_step(regression_model, optimizerR, loader,recorder, epoch,args)
+        train_step(regression_model, optimizerR, loader,recorder, epoch,args,target_label)
 
     # Save result to dir
-    return
+    return recorder, args
 
 
-def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt):
-    print("Epoch {} - Label: {} | {} - {}:".format(epoch, opt.target_label, opt.dataset, opt.attack_mode))
+def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt,target_label):
+    print("Epoch {} - Label: {}".format(epoch, target_label))
     # Set losses
+    atk_succ_threshold = 98.0
     cross_entropy = nn.CrossEntropyLoss()
     total_pred = 0
     true_pred = 0
@@ -164,18 +159,19 @@ def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt):
 
     # Set inner early stop flag
     inner_early_stop_flag = False
-    for batch_idx, (inputs, labels) in enumerate(dataloader):
+    for batch_idx, (inputs, labels,padding_mask) in enumerate(dataloader):
         # Forwarding and update model
         optimizerR.zero_grad()
 
         inputs = inputs.to(opt.device)
+        padding_mask = padding_mask.to(opt.device)
         sample_num = inputs.shape[0]
         total_pred += sample_num
-        target_labels = torch.ones((sample_num), dtype=torch.int64).to(opt.device) * opt.target_label
-        predictions = regression_model(inputs)
+        target_labels = torch.ones((sample_num), dtype=torch.int64).to(opt.device) * target_label
+        predictions = regression_model(inputs,padding_mask)
 
         loss_ce = cross_entropy(predictions, target_labels)
-        loss_reg = torch.norm(regression_model.get_raw_mask(), opt.use_norm)
+        loss_reg = torch.norm(regression_model.get_raw_mask(), 1)
         total_loss = loss_ce + recorder.cost * loss_reg
         total_loss.backward()
         optimizerR.step()
@@ -200,7 +196,7 @@ def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt):
     avg_loss_acc = torch.mean(loss_acc_list)
 
     # Check to save best mask or not
-    if avg_loss_acc >= opt.atk_succ_threshold and avg_loss_reg < recorder.reg_best:
+    if avg_loss_acc >= atk_succ_threshold and avg_loss_reg < recorder.reg_best:
         recorder.mask_best = regression_model.get_raw_mask().detach()
         recorder.pattern_best = regression_model.get_raw_pattern().detach()
         recorder.reg_best = avg_loss_reg
