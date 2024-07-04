@@ -200,7 +200,6 @@ def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt,ta
         recorder.mask_best = regression_model.get_raw_mask().detach()
         recorder.pattern_best = regression_model.get_raw_pattern().detach()
         recorder.reg_best = avg_loss_reg
-        recorder.save_result_to_dir(opt)
         print(" Updated !!!")
 
     # Show information
