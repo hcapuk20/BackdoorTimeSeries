@@ -105,8 +105,9 @@ class Pruning(Base):
         This is for the model with the structure of Linear and Transformer
         """
         model = self.model.to(device)
+        self.prune_rate = 0.5
         #layer_to_prune = 'model'
-        if self.args.model == "TimesNet":
+        if self.args.model.lower() == "timesnet":
             layer_to_prune = model.model[-1]
         elif self.args.model == "Informer":
             layer_to_prune = model.encoder.attn_layers[-1]
@@ -133,7 +134,7 @@ class Pruning(Base):
                 model(batch_x.to(self.args.device),padding_mask.to(self.args.device),None,None)
             hook.remove()
 
-        if self.args.model == "TimesNet":
+        if self.args.model.lower() == "timesnet":
             container = torch.cat(container, dim=0)
         elif self.args.model == "Informer":
             container = torch.cat([container[0][0]], dim=0)
