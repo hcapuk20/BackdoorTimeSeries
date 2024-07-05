@@ -35,7 +35,8 @@ class STRIP():
             self.model.zero_grad()
             batch_x = batch_x.float().to(self.args.device)
             label = label.to(self.args.device)
-            entropies = self.check(batch_x, label, self.clean_loader)
+            padding_mask = padding_mask.to(self.args.device)
+            entropies = self.check(batch_x, label, padding_mask, self.clean_loader)
             for e in entropies:
                 clean_entropy.append(e)
         clean_entropy = torch.FloatTensor(clean_entropy)
@@ -51,7 +52,8 @@ class STRIP():
             self.model.zero_grad()
             batch_x = batch_x.float().to(self.args.device)
             label = label.to(self.args.device)
-            entropies = self.check(batch_x, label, self.clean_loader)
+            padding_mask = padding_mask.to(self.args.device)
+            entropies = self.check(batch_x, label, padding_mask, self.clean_loader)
             for e in entropies:
                 all_entropy.append(e)
         all_entropy = torch.FloatTensor(all_entropy)
@@ -59,7 +61,7 @@ class STRIP():
         suspicious_indices = torch.logical_or(all_entropy < threshold_low, all_entropy > threshold_high).nonzero().reshape(-1)
         return suspicious_indices
 
-    def check(self, _input, _label, source_loader):
+    def check(self, _input, _label=None, padding_mask=None, source_loader=None):
         _list = []
 
         samples = list(range(len(source_loader.dataset)))
@@ -72,7 +74,7 @@ class STRIP():
                 X = get_nth_item_from_dataloader(source_loader, i, n)
                 X = X.to(self.args.device)
                 _test = self.superimpose(_input, X)
-                entropy = self.entropy(_test).cpu().detach()
+                entropy = self.entropy(_test, padding_mask).cpu().detach()
                 _list.append(entropy)
 
         return torch.stack(_list).mean(0)
@@ -84,9 +86,9 @@ class STRIP():
         result = _input1 + alpha * _input2
         return result
 
-    def entropy(self, _input: torch.Tensor) -> torch.Tensor:
+    def entropy(self, _input, padding_mask):
         # p = self.model.get_prob(_input)
-        p = torch.nn.Softmax(dim=1)(self.model(_input)) + 1e-8
+        p = torch.nn.Softmax(dim=1)(self.model(_input, padding_mask, None, None)) + 1e-8
         return (-p * p.log()).sum(1)
 
 def cleanser(inspection_set, clean_set, model, args):

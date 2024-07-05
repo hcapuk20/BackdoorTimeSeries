@@ -494,13 +494,14 @@ def defence_test_fp(bd_model,clean_model,train_loader,test_loader,args): ## for 
     return clean_accuracy,bd_accuracy
 
 
-def defence_test_strip(clean_model, poisoned_loader, clean_loader, backdoored_indices, args): 
+def defence_test_strip(clean_model, poisoned_loader, clean_loader, poisoned_indices, silent_indices, args): 
 
     print("======= strip defence test =======")
     suspicious_indices = cleanser(poisoned_loader, clean_loader, clean_model, args)
 
+    backdoored_indices = poisoned_indices.tolist() + silent_indices.tolist() if len(silent_indices) > 0 else poisoned_indices.tolist()
     backdoored_indices = set(backdoored_indices)
-    suspicious_indices = set([indice.item() for indice in suspicious_indices])
+    suspicious_indices = set([index.item() for index in suspicious_indices])
 
     hidden_backdoor_index_count = len((backdoored_indices - suspicious_indices))
     false_positives = len((suspicious_indices - backdoored_indices))
