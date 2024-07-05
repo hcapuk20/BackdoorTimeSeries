@@ -255,7 +255,7 @@ def run(args):
     _,val_data = torch.utils.data.random_split(train_data, [.8, .2])
     val_loader = custom_data_loader(val_data, args, flag='train', force_bs=16)
     clean_test_acc_def, bd_accuracy_test_def = defence_test_fp(bd_generator, clean_model,val_loader, test_loader, args)
-    hidden_count, caugth_count, false_positives = defence_test_strip(clean_model, bd_train_loader, train_loader, poisoned_indices+silent_indices, args)
+    hidden_count, caugth_count, false_positives = defence_test_strip(clean_model, bd_train_loader, train_loader, poisoned_indices, silent_indices, args)
     print('defences | CA : {}, ASR : {}'.format( clean_test_acc_def, bd_accuracy_test_def))
     print('STRIP Results: hidden:{}, caugth:{}, FP:{}'.format(hidden_count, caugth_count, false_positives))
     # one final test epoch to save plots.
