@@ -273,7 +273,7 @@ if __name__ == '__main__':
     args.sim_id = random.randint(1,9999)
     best_overall = 0
     best_bd_model = None
-    for i in range(1):
+    for i in range(3):
         clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def, bd_generator, \
                                             hidden_count, caught_count, fp_count = run(args)
         CA_def.append(clean_test_acc_def)
