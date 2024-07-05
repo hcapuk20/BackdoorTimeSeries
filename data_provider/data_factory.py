@@ -182,4 +182,8 @@ def bd_data_provider2(args, flag,bd_model):
         drop_last=drop_last,
         collate_fn=lambda x: collate_fn_bd(x,bd_model, max_len=args.seq_len,target_label=args.target_label)
     )
-    return data_set,data_loader
+
+    poisoned_indices = data_set.bd_inds
+    silent_indices = data_set.silent_bd_set
+
+    return data_set,data_loader, poisoned_indices, silent_indices
