@@ -20,7 +20,7 @@ def log(path,args,sim_id):
     f.close()
 
 
-def save_results(args,ca,asr,ca_std,asr_std,def_ca,def_asr,def_ca_std,def_asr_std,model):
+def save_results(args,ca,asr,ca_std,asr_std,def_ca,def_asr,def_ca_std,def_asr_std, hidden_count, caught_count, fp_count, model):
     sim_id = args.sim_id
     dataset = args.root_path.split('/')[-1]
     if len(dataset) < 2:
@@ -41,6 +41,7 @@ def save_results(args,ca,asr,ca_std,asr_std,def_ca,def_asr,def_ca_std,def_asr_st
     f.write('def-ASR : {}'.format(def_asr) + '\n')
     f.write('def-CA STD : {}'.format(def_ca_std) + '\n')
     f.write('def-ASR STD : {}'.format(def_asr_std) + '\n')
+    f.write('STRIP results: Hidden count: {}, Caught count: {}, FP count: {}'. format(hidden_count, caught_count, fp_count) + '\n')
     f.close()
     torch.save(model.state_dict(), path + '/model.pth')
     return None

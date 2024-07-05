@@ -504,10 +504,10 @@ def defence_test_strip(clean_model, poisoned_loader, clean_loader, poisoned_indi
     suspicious_indices = set([index.item() for index in suspicious_indices])
 
     hidden_backdoor_index_count = len((backdoored_indices - suspicious_indices))
-    false_positives = len((suspicious_indices - backdoored_indices))
+    fp_count = len((suspicious_indices - backdoored_indices))
 
-    caught_indice_count = len((backdoored_indices & suspicious_indices))
+    caught_index_count = len((backdoored_indices & suspicious_indices))
 
-    return hidden_backdoor_index_count, caught_indice_count, false_positives
+    return hidden_backdoor_index_count, caught_index_count, fp_count
 
 
