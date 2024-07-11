@@ -10,11 +10,13 @@ class RegressionModel(nn.Module):
         super(RegressionModel, self).__init__()
         ### Here we initialize mask and pattern which will be trained
         ### pattern is the fix trigger to be learned
-        self.mask_tanh = nn.Parameter(torch.tensor(init_mask))
-        self.pattern_tanh = nn.Parameter(torch.tensor(init_pattern))
+        self.mask_tanh = nn.Parameter(torch.tensor(init_mask),requires_grad=False)
+        self.mask_tanh[:] = 0.1
+        self.pattern_tanh = nn.Parameter(torch.tensor(init_pattern),requires_grad=True)
         ### we train pattern and mask similar to adversarial learning (classifier is fixed)
         for p in classifier.parameters():
-            p.requires_grad = False
+            if p.requires_grad:
+                p.requires_grad = False
         self.classifier = classifier.eval()
 
     def forward(self, x,padding_mask):
@@ -28,8 +30,12 @@ class RegressionModel(nn.Module):
         return mask / (2 + self._EPSILON) + 0.5
 
     def get_raw_pattern(self):
+        return self.pattern_tanh
+
+    def get_raw_pattern_old(self):
         pattern = nn.Tanh()(self.pattern_tanh)
         return pattern / (2 + self._EPSILON) + 0.5
+
 
 
 
@@ -72,7 +78,7 @@ def main(args,classifier,loader):
     # init_mask = np.random.randn(1, opt.input_height, opt.input_width).astype(np.float32)
     # init_pattern = np.random.randn(opt.input_channel, opt.input_height, opt.input_width).astype(np.float32)
     shape = (args.seq_len, args.enc_in)
-    init_mask = np.ones((1, shape[0],shape[1])).astype(np.float32)
+    init_mask = np.ones((shape[0],1)).astype(np.float32)
     init_pattern = np.ones(shape).astype(np.float32)
 
     for test in range(5):
@@ -118,7 +124,7 @@ class Recorder:
         self.early_stop_reg_best = self.reg_best
 
         # Cost
-        self.cost = 1e-3
+        self.cost = 0
         self.cost_multiplier = 2.0
         self.cost_multiplier_up = self.cost_multiplier
         self.cost_multiplier_down = self.cost_multiplier ** 1.5
@@ -132,12 +138,12 @@ def train(args,classifier, loader, init_mask, init_pattern,target_label):
     regression_model = RegressionModel(classifier, init_mask, init_pattern).to(args.device)
 
     # Set optimizer
-    optimizerR = torch.optim.Adam(regression_model.parameters(), lr=0.001, betas=(0.5, 0.9))
+    optimizerR = torch.optim.Adam(regression_model.parameters(), lr=0.001)
 
     # Set recorder (for recording best result)
     recorder = Recorder(args)
 
-    for epoch in range(5):
+    for epoch in range(50):
         train_step(regression_model, optimizerR, loader,recorder, epoch,args,target_label)
 
     # Save result to dir
@@ -172,8 +178,11 @@ def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt,ta
         predictions = regression_model(inputs,padding_mask)
 
         loss_ce = cross_entropy(predictions, target_labels)
-        loss_reg = torch.norm(regression_model.get_raw_mask(), 1)
-        total_loss = loss_ce + recorder.cost * loss_reg
+        #loss_reg = torch.norm(regression_model.get_raw_mask(), 1)
+        loss_reg = torch.zeros_like(loss_ce)
+        #total_loss = loss_ce + recorder.cost * loss_reg
+        print('CE', loss_ce)
+        total_loss = loss_ce
         total_loss.backward()
         optimizerR.step()
 
@@ -181,11 +190,11 @@ def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt,ta
         minibatch_accuracy = torch.sum(torch.argmax(predictions, dim=1) == target_labels).detach() * 100.0 / sample_num
         loss_ce_list.append(loss_ce.detach())
         loss_reg_list.append(loss_reg.detach())
+        #loss_reg_list.append(0)
         loss_list.append(total_loss.detach())
         loss_acc_list.append(minibatch_accuracy)
 
         true_pred += torch.sum(torch.argmax(predictions, dim=1) == target_labels).detach()
-
     loss_ce_list = torch.stack(loss_ce_list)
     loss_reg_list = torch.stack(loss_reg_list)
     loss_list = torch.stack(loss_list)
@@ -195,6 +204,7 @@ def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt,ta
     avg_loss_reg = torch.mean(loss_reg_list)
     avg_loss = torch.mean(loss_list)
     avg_loss_acc = torch.mean(loss_acc_list)
+    print('avg Values:',avg_loss_reg,avg_loss_acc)
 
     # Check to save best mask or not
     if avg_loss_acc >= atk_succ_threshold and avg_loss_reg < recorder.reg_best:
@@ -209,8 +219,4 @@ def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt,ta
             true_pred * 100.0 / total_pred, avg_loss_ce, avg_loss_reg, recorder.reg_best
         )
     )
-
-    # Check early stop
-
-
     return
