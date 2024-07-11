@@ -3,6 +3,7 @@ import numpy as np
 import torch.nn as nn
 from utils.model_ops import *
 from defences.fp import Pruning
+from defences.nc import main as nc_main
 from defences.strip import cleanser
 
 
@@ -145,9 +146,7 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=N
             loss_trig.backward()
             opt_trig.step()
         #### With a certain period we synchronize bd_model and bd_model_prev
-        if i % 5 ==0: #deep_copy model
-            pull_model(bd_model_prev,bd_model)#### here move bd_model to bd_model_prev
-            #### 5 will be a parameter and we may consider syncronisation even at the end of epoch
+    pull_model(bd_model_prev,bd_model)#### here move bd_model to bd_model_prev
     total_loss = np.average(total_loss)
     all_preds = torch.cat(all_preds, 0)
     bd_preds = torch.cat(bd_preds, 0)
@@ -237,9 +236,7 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
             loss_trig.backward()
             opt_trig.step()
         #### With a certain period we synchronize bd_model and bd_model_prev
-        if i % 5 ==0: #deep_copy model
-            pull_model(bd_model_prev,bd_model)#### here move bd_model to bd_model_prev
-            #### 5 will be a parameter and we may consider syncronisation even at the end of epoch
+    pull_model(bd_model_prev,bd_model)#### here move bd_model to bd_model_prev
     total_loss = np.average(total_loss)
     all_preds = torch.cat(all_preds, 0)
     bd_preds = torch.cat(bd_preds, 0)
@@ -493,8 +490,44 @@ def defence_test_fp(bd_model,clean_model,train_loader,test_loader,args): ## for 
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     return clean_accuracy,bd_accuracy
 
+def defence_test_nc(bd_model,clean_model,train_loader,test_loader,args): ## for testing the backdoored clean model
+    preds = []
+    bd_preds = []
+    trues = []
+    bd_label = args.target_label
 
-def defence_test_strip(clean_model, poisoned_loader, clean_loader, poisoned_indices, silent_indices, args): 
+    ########## Defence mechanism
+    nc_main(args,clean_model,train_loader)
+    ############################
+    # Rest of the code is test epoch
+    for i, (batch_x, label, padding_mask) in enumerate(test_loader):
+        clean_model.zero_grad()
+        batch_x = batch_x.float().to(args.device)
+        padding_mask = padding_mask.float().to(args.device)
+        label = label.to(args.device)
+        target_labels = torch.ones_like(label) * bd_label
+        trigger_x,trigger_clipped = bd_model(batch_x, padding_mask, None, None,target_labels)
+        clean_outs = clean_model(batch_x, padding_mask,None,None)
+        bd_batch = batch_x + trigger_clipped
+        bd_outs = clean_model(bd_batch, padding_mask,None,None)
+        preds.append(clean_outs.detach())
+        bd_preds.append(bd_outs)
+        trues.append(label)
+    preds = torch.cat(preds, 0)
+    bd_preds = torch.cat(bd_preds, 0)
+    trues = torch.cat(trues, 0)
+    bd_labels = torch.ones_like(trues) * bd_label
+    probs = torch.nn.functional.softmax(
+        preds)  # (total_samples, num_classes) est. prob. for each class and sample
+    predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    bd_predictions = torch.argmax(torch.nn.functional.softmax(bd_preds),
+                                  dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    trues = trues.flatten().cpu().numpy()
+    clean_accuracy = cal_accuracy(predictions, trues)
+    bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
+    return clean_accuracy,bd_accuracy
+
+def defence_test_strip(clean_model, poisoned_loader, clean_loader, poisoned_indices, silent_indices, args):
 
     print("======= strip defence test =======")
     suspicious_indices = cleanser(poisoned_loader, clean_loader, clean_model, args)
