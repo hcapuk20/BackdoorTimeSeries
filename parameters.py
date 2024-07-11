@@ -29,7 +29,7 @@ def args_parser():
     parser.add_argument('--target_label', type=int, default=0, help='targeted label')
     parser.add_argument('--load_bd_model', type=str, default=None, help='path to the bd model weights')
     parser.add_argument('--label_smooth', type=float, default=0., help='label smoothing')
-    parser.add_argument('--silent_poisoning', type=bool, default=True, help='')
+    parser.add_argument('--silent_poisoning', type=bool, default=False, help='')
 
     # Training or testing
     parser.add_argument('--is_training', type=int, default=1, help='Running mode')
@@ -39,7 +39,7 @@ def args_parser():
     parser.add_argument('--task_name', type=str, default='classification', help='Task to be performed.')
 
     ############ Training Parameters
-    parser.add_argument('--train_epochs', type=int, default=1, help='number of training epochs for trigger generator')
+    parser.add_argument('--train_epochs', type=int, default=200, help='number of training epochs for trigger generator')
     parser.add_argument('--train_epochs_inj', type=int, default=200,
                         help='number of training epochs for backdoor injection')
     parser.add_argument('--batch_size', type=int, default=40, help='batch size of train input data')

@@ -58,7 +58,7 @@ def collate_fn_bd(data, G, max_len=None,target_label=0):
             0 indicates masked values to be predicted, 1 indicates unaffected/"active" feature values
         padding_masks: (batch_size, padded_length) boolean tensor, 1 means keep vector at this position, 0 means padding
     """
-
+    device = next(G.parameters()).device
     batch_size = len(data)
     features, labels, is_bd = zip(*data)
 
@@ -83,8 +83,10 @@ def collate_fn_bd(data, G, max_len=None,target_label=0):
         bd_pads = padding_masks[is_bd]
         targs = targets[is_bd]
         target_bd = torch.ones_like(targs) * target_label
+        bd_x = bd_x.to(device)
         trig, trig_clipped = G(bd_x, bd_pads,None,None,target_bd)
         bd_x = bd_x + trig_clipped
+        bd_x = bd_x.to('cpu')
         X[is_bd] = bd_x
     return X, targets, padding_masks
 

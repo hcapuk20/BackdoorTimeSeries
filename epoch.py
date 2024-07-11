@@ -3,6 +3,7 @@ import numpy as np
 import torch.nn as nn
 from utils.model_ops import *
 from defences.fp import Pruning
+from defences.strip import cleanser
 
 
 ################# Related works with Code #############
@@ -491,5 +492,22 @@ def defence_test_fp(bd_model,clean_model,train_loader,test_loader,args): ## for 
     clean_accuracy = cal_accuracy(predictions, trues)
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     return clean_accuracy,bd_accuracy
+
+
+def defence_test_strip(clean_model, poisoned_loader, clean_loader, poisoned_indices, silent_indices, args): 
+
+    print("======= strip defence test =======")
+    suspicious_indices = cleanser(poisoned_loader, clean_loader, clean_model, args)
+
+    backdoored_indices = poisoned_indices.tolist() + silent_indices.tolist() if len(silent_indices) > 0 else poisoned_indices.tolist()
+    backdoored_indices = set(backdoored_indices)
+    suspicious_indices = set([index.item() for index in suspicious_indices])
+
+    hidden_backdoor_index_count = len((backdoored_indices - suspicious_indices))
+    fp_count = len((suspicious_indices - backdoored_indices))
+
+    caught_index_count = len((backdoored_indices & suspicious_indices))
+
+    return hidden_backdoor_index_count, caught_index_count, fp_count
 
 
