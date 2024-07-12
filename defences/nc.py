@@ -136,7 +136,7 @@ class Recorder:
 def train(args,classifier, loader, init_mask, init_pattern,target_label):
     # Load the model
 
-    # Build regression model
+    # Build regression model # Regression model is comb of trainable mask and pattern  and also classifier weights (grad = False and in eval mode)
     regression_model = RegressionModel(classifier, init_mask, init_pattern).to(args.device)
 
     # Set optimizer
