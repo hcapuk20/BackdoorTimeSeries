@@ -20,6 +20,7 @@ class RegressionModel(nn.Module):
         self.classifier = classifier.eval()
 
     def forward(self, x,padding_mask):
+        # Write the dimensions
         mask = self.get_raw_mask()
         pattern = self.get_raw_pattern()
         x = (1 - mask) * x + mask * pattern
