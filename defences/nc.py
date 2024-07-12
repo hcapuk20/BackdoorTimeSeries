@@ -172,9 +172,9 @@ def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt,ta
         # Forwarding and update model
         optimizerR.zero_grad()
 
-        inputs = inputs.to(opt.device)
+        inputs = inputs.to(opt.device) # B x N x T
         padding_mask = padding_mask.to(opt.device)
-        sample_num = inputs.shape[0]
+        sample_num = inputs.shape[0] # B (batch size)
         total_pred += sample_num
         target_labels = torch.ones((sample_num), dtype=torch.int64).to(opt.device) * target_label
         predictions = regression_model(inputs,padding_mask)
