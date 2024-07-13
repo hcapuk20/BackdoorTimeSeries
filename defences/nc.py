@@ -72,13 +72,13 @@ def outlier_detection(l1_norm_list, idx_mapping):
 
 
 def main(args,classifier,loader):
-
+    # time series input = [bs,T,N]
     # init_mask = np.random.randn(1, opt.input_height, opt.input_width).astype(np.float32)
     # init_pattern = np.random.randn(opt.input_channel, opt.input_height, opt.input_width).astype(np.float32)
-    shape = (args.seq_len, args.enc_in)
+    #shape = (args.seq_len, args.enc_in)
     ##### burasi net degil seq_len ne T mi yoksa patchler mi? niye 2 dim var T x N mi ????
-    init_mask = np.ones((shape[0],1)).astype(np.float32)
-    init_pattern = np.ones(shape).astype(np.float32)
+    init_mask = np.random.randn(args.seq_len,1).astype(np.float32)
+    init_pattern = np.random.randn(args.seq_len,args.enc_in).astype(np.float32)
 
     for test in range(5):
         masks = []
