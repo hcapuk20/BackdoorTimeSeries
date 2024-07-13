@@ -19,6 +19,7 @@ class RegressionModel(nn.Module):
         self.classifier = classifier.eval()
 
     def forward(self, x,padding_mask):
+        # Write the dimensions
         mask = self.get_raw_mask()
         pattern = self.get_raw_pattern()
         x = (1 - mask) * x + mask * pattern
@@ -75,6 +76,7 @@ def main(args,classifier,loader):
     # init_mask = np.random.randn(1, opt.input_height, opt.input_width).astype(np.float32)
     # init_pattern = np.random.randn(opt.input_channel, opt.input_height, opt.input_width).astype(np.float32)
     shape = (args.seq_len, args.enc_in)
+    ##### burasi net degil seq_len ne T mi yoksa patchler mi? niye 2 dim var T x N mi ????
     init_mask = np.ones((shape[0],1)).astype(np.float32)
     init_pattern = np.ones(shape).astype(np.float32)
 
@@ -130,7 +132,7 @@ class Recorder:
 def train(args,classifier, loader, init_mask, init_pattern,target_label):
     # Load the model
 
-    # Build regression model
+    # Build regression model # Regression model is comb of trainable mask and pattern  and also classifier weights (grad = False and in eval mode)
     regression_model = RegressionModel(classifier, init_mask, init_pattern).to(args.device)
 
     # Set optimizer
@@ -166,9 +168,9 @@ def train_step(regression_model, optimizerR, dataloader, recorder, epoch, opt,ta
         # Forwarding and update model
         optimizerR.zero_grad()
 
-        inputs = inputs.to(opt.device)
+        inputs = inputs.to(opt.device) # B x N x T
         padding_mask = padding_mask.to(opt.device)
-        sample_num = inputs.shape[0]
+        sample_num = inputs.shape[0] # B (batch size)
         total_pred += sample_num
         target_labels = torch.ones((sample_num), dtype=torch.int64).to(opt.device) * target_label
         predictions = regression_model(inputs,padding_mask)
