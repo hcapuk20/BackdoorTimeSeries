@@ -152,7 +152,7 @@ class Pruning(Base):
         #prune.custom_from_mask(getattr(model, layer_to_prune), name="weight", mask=mask)
 
         #setattr(layer_to_prune, 'model', MaskedLayer(layer_to_prune, mask))
-        if self.args.model == "TimesNet":
+        if self.args.model.lower() == "timesnet":
             model.model[-1] = MaskedLayer(layer_to_prune, mask)
         elif self.args.model == "Informer":
             model.encoder.attn_layers[-1] = MaskedLayer(layer_to_prune, mask, model_type="Informer")

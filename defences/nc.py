@@ -10,8 +10,7 @@ class RegressionModel(nn.Module):
         super(RegressionModel, self).__init__()
         ### Here we initialize mask and pattern which will be trained
         ### pattern is the fix trigger to be learned
-        self.mask_tanh = nn.Parameter(torch.tensor(init_mask),requires_grad=False)
-        self.mask_tanh[:] = 0.1
+        self.mask_tanh = nn.Parameter(torch.tensor(init_mask),requires_grad=True)
         self.pattern_tanh = nn.Parameter(torch.tensor(init_pattern),requires_grad=True)
         ### we train pattern and mask similar to adversarial learning (classifier is fixed)
         for p in classifier.parameters():
@@ -35,8 +34,6 @@ class RegressionModel(nn.Module):
     def get_raw_pattern_old(self):
         pattern = nn.Tanh()(self.pattern_tanh)
         return pattern / (2 + self._EPSILON) + 0.5
-
-
 
 
 
@@ -84,7 +81,6 @@ def main(args,classifier,loader):
     for test in range(5):
         masks = []
         idx_mapping = {}
-
         for target_label in range(args.num_class):
             print("----------------- Analyzing label: {} -----------------".format(target_label))
             #args.target_label = target_label

@@ -22,7 +22,8 @@ def main_thread(args):
     best_overall = 0
     best_bd_model = None
     for i in range(3):
-        clean_test_acc, bd_accuracy_test, clean_test_acc_def, bd_accuracy_test_def, bd_generator = run(args)
+        clean_test_acc, bd_accuracy_test, clean_test_acc_def, bd_accuracy_test_def, bd_generator,\
+            hidden_count, caught_count, fp_count = run(args)
         CA_def.append(clean_test_acc_def)
         ASR_def.append(bd_accuracy_test_def)
         CA.append(clean_test_acc)
@@ -32,7 +33,7 @@ def main_thread(args):
             best_overall = overall_acc
             best_bd_model = bd_generator
     save_results(args, np.mean(CA), np.mean(ASR), np.std(CA), np.std(ASR), np.mean(CA_def), np.mean(ASR_def),
-                 np.std(CA_def), np.std(ASR_def), best_bd_model)
+                 np.std(CA_def), np.std(ASR_def), hidden_count, caught_count, fp_count, best_bd_model)
 
 
 if __name__ == '__main__':

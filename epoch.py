@@ -132,7 +132,9 @@ def epoch_marksman(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=N
         trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None) # trigger with active model
         bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None) # surrogate classifier in eval mode
         loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
-        loss_reg = l2_reg(trigger_clip, trigger) ### here we also utilize reqularizer loss
+        loss_reg = reg_loss(batch_x, trigger, trigger_clip, args)  ### We can use regularizer loss as well
+        if loss_reg is None:
+            loss_reg = torch.zeros_like(loss_bd)
         loss_trig = loss_bd + loss_reg
         total_loss.append(loss_trig.item() + loss_class.item())
         all_preds.append(clean_pred)
@@ -287,8 +289,9 @@ def epoch(bd_model,surr_model, loader, args, opt=None,opt2=None,train=True): ###
             bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
             loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
             loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
-            loss_reg = l2_reg(trigger_clip, trigger)
-            loss_reg = loss_reg + fftreg(batch_x, batch_x + trigger_clip) ### we can add fft reg for extra regularizer
+            loss_reg = reg_loss(batch_x,trigger,trigger_clip,args) ### We can use regularizer loss as well
+            if loss_reg is None:
+                loss_reg = torch.zeros_like(loss_bd)
             loss = loss_clean + loss_bd + loss_reg
             loss_dict['CE_c'].append(loss_clean.item())
             loss_dict['CE_bd'].append(loss_bd.item())
