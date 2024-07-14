@@ -239,7 +239,7 @@ def run(args):
 
     #### START OF THE NEW TRANING WITH TRAINED TRIGGER GENERATOR
     bd_generator.eval()
-    poisoned_data, bd_train_loader, poisoned_indices, silent_indices = bd_data_provider2(args, 'train', bd_generator)
+    poisoned_data, bd_train_loader = bd_data_provider2(args, 'train', bd_generator)
     clean_model = get_clean_model(args, train_data, test_data)
     optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr)
 
@@ -255,11 +255,13 @@ def run(args):
     _,val_data = torch.utils.data.random_split(train_data, [.8, .2])
     val_loader = custom_data_loader(val_data, args, flag='train', force_bs=16)
     clean_test_acc_def, bd_accuracy_test_def = defence_test_fp(bd_generator, clean_model,val_loader, test_loader, args)
-    hidden_count, caught_count, fp_count = defence_test_strip(clean_model, bd_train_loader, train_loader, poisoned_indices, silent_indices, args)
-    print('defences | CA : {}, ASR : {}'.format( clean_test_acc_def, bd_accuracy_test_def))
-    print('STRIP Results: hidden:{}, caugth:{}, FP:{}'.format(hidden_count, caught_count, fp_count))
     # one final test epoch to save plots.
     clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series, visualize)
+    # STRIP
+    poisoned_data, bd_test_loader, poisoned_indices, silent_indices = bd_data_provider2(args, 'test', bd_generator)
+    hidden_count, caught_count, fp_count = defence_test_strip(clean_model, bd_test_loader, train_loader, poisoned_indices, silent_indices, args)
+    print('defences | CA : {}, ASR : {}'.format( clean_test_acc_def, bd_accuracy_test_def))
+    print('STRIP Results: hidden:{}, caugth:{}, FP:{}'.format(hidden_count, caught_count, fp_count))
     return clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def,bd_generator, hidden_count, caught_count, fp_count
 
 

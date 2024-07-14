@@ -4,7 +4,7 @@ Strip backdoor defense
 adapted for poison detection
 https://github.com/Unispac/Fight-Poison-With-Poison/blob/master/other_cleansers/strip.py
 """
-import torch, torchvision
+import torch
 import numpy as np
 from tqdm import tqdm
 import random
