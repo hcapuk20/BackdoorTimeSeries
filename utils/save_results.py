@@ -44,4 +44,13 @@ def save_results(args,ca,asr,ca_std,asr_std,def_ca,def_asr,def_ca_std,def_asr_st
     f.write('STRIP results: Hidden count: {}, Caught count: {}, FP count: {}'. format(hidden_count, caught_count, fp_count) + '\n')
     f.close()
     torch.save(model.state_dict(), path + '/model.pth')
+    plot_results(path,ca,asr)
+    return None
+
+
+def plot_results(path,CA,ASR):
+    plt.plot(CA, label='CA', color='blue')
+    plt.plot(ASR, label='ASR', color='red')
+    plt.legend()
+    plt.savefig(path + '/results.png')
     return None
