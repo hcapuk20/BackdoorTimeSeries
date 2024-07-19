@@ -5,6 +5,7 @@ from utils.model_ops import *
 from defences.fp import Pruning
 from defences.nc import main as nc_main
 from defences.strip import cleanser
+from utils.visualize import visualize2
 
 
 ################# Related works with Code #############
@@ -545,5 +546,17 @@ def defence_test_strip(clean_model, poisoned_loader, clean_loader, poisoned_indi
     caught_index_count = len((backdoored_indices & suspicious_indices))
 
     return hidden_backdoor_index_count, caught_index_count, fp_count
+
+
+def epoch_visualize(clean_model, bd_loader,poisoned_indices, silent_indices, args): ## for testing the backdoored clean model
+    latents = []
+    for i, (batch_x, label, padding_mask) in enumerate(bd_loader):
+        clean_model.zero_grad()
+        batch_x = batch_x.float().to(args.device)
+        padding_mask = padding_mask.float().to(args.device)
+        _, latent = clean_model(batch_x, padding_mask,None,None, visualize=visualize2)
+        latents.append(latent)
+    latents = torch.cat(latents, dim=0)
+    visualize2(latents, poisoned_indices, silent_indices, args)
 
 

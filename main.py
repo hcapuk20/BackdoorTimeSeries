@@ -260,6 +260,8 @@ def run(args):
     # STRIP
     poisoned_data, bd_test_loader, poisoned_indices, silent_indices = bd_data_provider2(args, 'test', bd_generator)
     hidden_count, caught_count, fp_count = defence_test_strip(clean_model, bd_test_loader, train_loader, poisoned_indices, silent_indices, args)
+    # visualize latents (new)
+    epoch_visualize(clean_model, bd_test_loader, poisoned_indices, silent_indices, args)
     print('defences | CA : {}, ASR : {}'.format( clean_test_acc_def, bd_accuracy_test_def))
     print('STRIP Results: hidden:{}, caugth:{}, FP:{}'.format(hidden_count, caught_count, fp_count))
     return clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def,bd_generator, hidden_count, caught_count, fp_count
