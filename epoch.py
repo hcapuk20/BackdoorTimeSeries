@@ -363,16 +363,16 @@ def epoch_with_diversity(bd_model,surr_model, loader1, loader2, args, opt=None,o
 
             ### DIVERGENCE LOSS CALCULATION
             input_distances = criterion_div(batch_x, batch_x2)
-            input_distances = torch.mean(input_distances, dim=(1, 2, 3))
+            input_distances = torch.mean(input_distances, dim=(1, 2))
             input_distances = torch.sqrt(input_distances)
 
             ### TODO: do we use trigger or trigger_clip here?
             trigger_distances = criterion_div(trigger, trigger2)
-            trigger_distances = torch.mean(trigger_distances, dim=(1, 2, 3))
+            trigger_distances = torch.mean(trigger_distances, dim=(1, 2))
             trigger_distances = torch.sqrt(trigger_distances)
 
             loss_div = input_distances / (trigger_distances + 1e-6) # second value is the epsilon, arbitrary for now
-            loss_div = torch.mean(loss_div) * opt.lambda_div
+            loss_div = torch.mean(loss_div) * 1.0 # give weight from args
 
             clean_pred = surr_model(batch_x, padding_mask,None,None)
             bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
