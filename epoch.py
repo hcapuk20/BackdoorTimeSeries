@@ -321,6 +321,96 @@ def epoch(bd_model,surr_model, loader, args, opt=None,opt2=None,train=True): ###
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     return total_loss,loss_dict, accuracy,bd_accuracy
 
+def epoch_with_diversity(bd_model,surr_model, loader1, loader2, args, opt=None,opt2=None,train=True): ##### The main training module
+    total_loss = []
+    all_preds = []
+    bd_preds = []
+    trues = []
+    bds = []
+    bd_label = args.target_label
+    loss_dict = {'CE_c':[],'CE_bd':[],'reg':[]}
+    ratio = args.poisoning_ratio_train
+    criterion_div = nn.MSELoss(reduction="none")
+
+    if train:
+        surr_model.train()
+        bd_model.train()
+    else:
+        surr_model.eval()
+        bd_model.eval()
+    for i, (batch_x, label, padding_mask), (batch_x2, label2, padding_mask2) in zip(range(len(loader1)), loader1, loader2):
+            b_r = int(batch_x.size(0) * ratio)
+            bd_model.zero_grad()
+            surr_model.zero_grad()
+            #### Fetch clean data
+            batch_x = batch_x.float().to(args.device)
+            #### Fetch mask (for forecast task)
+            padding_mask = padding_mask.float().to(args.device)
+            #### Fetch labels
+            label = label.to(args.device)
+            #### Generate backdoor labels ####### so far we focus on fixed target scenario
+            batch_x2 = batch_x2.float().to(args.device)
+            padding_mask2 = padding_mask2.float().to(args.device)
+            label2 = label2.to(args.device)
+            
+            bd_labels = torch.ones_like(label).to(args.device) * bd_label ## comes from argument
+            bd_labels2 = torch.ones_like(label2).to(args.device) * bd_label ## comes from argument
+
+            #### Combine true and target labels
+            ########### Here we generate trigger #####################
+            trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None)
+            trigger2, trigger_clip2 = bd_model(batch_x2, padding_mask2, None, None)
+
+            ### DIVERGENCE LOSS CALCULATION
+            input_distances = criterion_div(batch_x, batch_x2)
+            input_distances = torch.mean(input_distances, dim=(1, 2, 3))
+            input_distances = torch.sqrt(input_distances)
+
+            ### TODO: do we use trigger or trigger_clip here?
+            trigger_distances = criterion_div(trigger, trigger2)
+            trigger_distances = torch.mean(trigger_distances, dim=(1, 2, 3))
+            trigger_distances = torch.sqrt(trigger_distances)
+
+            loss_div = input_distances / (trigger_distances + 1e-6) # second value is the epsilon, arbitrary for now
+            loss_div = torch.mean(loss_div) * opt.lambda_div
+
+            clean_pred = surr_model(batch_x, padding_mask,None,None)
+            bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
+            loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
+            loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
+            loss_reg = reg_loss(batch_x,trigger,trigger_clip,args) ### We can use regularizer loss as well
+            if loss_reg is None:
+                loss_reg = torch.zeros_like(loss_bd)
+            loss = loss_clean + loss_bd + loss_reg
+            loss_dict['CE_c'].append(loss_clean.item())
+            loss_dict['CE_bd'].append(loss_bd.item())
+            loss_dict['reg'].append(loss_reg.item())
+            total_loss.append(loss.item())
+            all_preds.append(clean_pred)
+            bd_preds.append(bd_pred)
+            trues.append(label)
+            bds.append(bd_labels)
+
+            loss = loss + loss_div
+            if opt is not None:
+                loss.backward()
+                opt.step()
+            if opt2 is not None:
+                opt2.step()
+    total_loss = np.average(total_loss)
+    all_preds = torch.cat(all_preds, 0)
+    bd_preds = torch.cat(bd_preds, 0)
+    trues = torch.cat(trues, 0)
+    bd_labels = torch.cat(bds, 0)
+    probs = torch.nn.functional.softmax(
+        all_preds)  # (total_samples, num_classes) est. prob. for each class and sample
+    predictions = torch.argmax(probs, dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    bd_predictions = torch.argmax(torch.nn.functional.softmax(bd_preds), dim=1).cpu().numpy()  # (total_samples,) int class index for each sample
+    trues = trues.flatten().cpu().numpy()
+    accuracy = cal_accuracy(predictions, trues)
+    bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
+    return total_loss,loss_dict, accuracy,bd_accuracy
+
 def epoch_clean_train2(model, loader, args,optimiser): #for training clean model with fraction of backdoored data
     # loader here contains the backdoor generator, and generates trigger
     # for the spesific indices in the dataset
