@@ -173,7 +173,11 @@ def run(args):
         for i in tqdm(range(args.train_epochs)):
             ########### Here train the trigger while also update the surrogate classifier #########
             if args.train_mode == 'basic':
-                train_loss, train_dic, train_acc, bd_train_acc = epoch(bd_model, surr_model, train_loader, args, opt_bd,None)
+                #train_loss, train_dic, train_acc, bd_train_acc = epoch(bd_model, surr_model, train_loader, args, opt_bd,None)
+                train_data2, train_loader2 = get_data(args=args, flag='train')
+
+                train_loss, train_dic, train_acc, bd_train_acc = epoch_with_diversity(bd_model, surr_model, train_loader, train_loader2, args, opt_bd,None)
+
                 test_loss, test_dic, test_acc, bd_test_acc = epoch(bd_model, surr_model, test_loader, args,train=False)
             elif args.train_mode == '2opt':
                 train_loss, train_dic, train_acc, bd_train_acc = epoch(bd_model, surr_model, train_loader, args, opt_bd, opt_surr)
