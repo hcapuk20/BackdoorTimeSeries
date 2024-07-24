@@ -124,6 +124,8 @@ def run(args):
     args.saveDir = 'weights/model_weights'  # path to be saved to
     # ======================================================= Initialize the model
     train_data, train_loader = get_data(args=args, flag='train')
+    if args.div_reg:
+        train_data2, train_loader2 = get_data(args=args, flag='train')
     test_data, test_loader = get_data(args=args, flag='test')
     args.seq_len = max(train_data.max_seq_len, test_data.max_seq_len)
     args.pred_len = 0
@@ -174,22 +176,30 @@ def run(args):
             ########### Here train the trigger while also update the surrogate classifier #########
             if args.train_mode == 'basic':
                 if args.div_reg:
-                    train_data2, train_loader2 = get_data(args=args, flag='train')
                     train_loss, train_dic, train_acc, bd_train_acc = epoch_with_diversity(bd_model, surr_model, train_loader, args, loader2=train_loader2, opt=opt_bd, opt2=None)
                 else:
                     train_loss, train_dic, train_acc, bd_train_acc = epoch_with_diversity(bd_model, surr_model, train_loader, args, opt=opt_bd, opt2=None)
-
-                test_loss, test_dic, test_acc, bd_test_acc = epoch(bd_model, surr_model, test_loader, args,train=False)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_with_diversity(bd_model, surr_model, test_loader, args,train=False)
             elif args.train_mode == '2opt':
-                train_loss, train_dic, train_acc, bd_train_acc = epoch(bd_model, surr_model, train_loader, args, opt_bd, opt_surr)
-                test_loss, test_dic, test_acc, bd_test_acc = epoch(bd_model, surr_model, test_loader, args,train=False)
+                if args.div_reg:
+                    train_loss, train_dic, train_acc, bd_train_acc = epoch_with_diversity(bd_model, surr_model, train_loader, args, loader2=train_loader2, opt=opt_bd, opt2=opt_surr)
+                else:
+                    train_loss, train_dic, train_acc, bd_train_acc = epoch_with_diversity(bd_model, surr_model, train_loader, args, opt=opt_bd, opt2=opt_surr)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_with_diversity(bd_model, surr_model, test_loader, args,train=False)
             elif args.train_mode == 'marksman':
-                train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman(bd_model,bd_model_prev ,surr_model, train_loader, args, opt_bd, opt_surr)
-                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman(bd_model,bd_model_prev, surr_model, test_loader, args,train=False)
+                if args.div_reg:
+                    train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev ,surr_model, train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr)
+                else:
+                    train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev ,surr_model, train_loader, args, opt_trig=opt_bd, opt_class=opt_surr)                
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev, surr_model, test_loader, args,train=False)
             elif args.train_mode == 'marksman_lam':
-                train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_lam(bd_model, bd_model_prev, surr_model,
-                                                                                train_loader, args, opt_bd, opt_surr)
-                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_lam(bd_model, bd_model_prev, surr_model,
+                if args.div_reg:
+                    train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model,
+                                                                                train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr)
+                else:
+                    train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model,
+                                                                                train_loader, args, opt_trig=opt_bd, opt_class=opt_surr)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model,
                                                                             test_loader, args, train=False)
             # elif args.train_mode == 'marksman_lam_cross':
             #     train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_lam_cross(bd_model, bd_model_prev, surr_model,
