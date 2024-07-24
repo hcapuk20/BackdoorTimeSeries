@@ -119,8 +119,11 @@ def get_clean_model(args, train_data, test_data):
 
 
 ############ Training the model
-def run(args):
-    args.device = args.device if torch.cuda.is_available() else 'cpu'
+def run(args,threaded=True):
+    if threaded:
+        args.device = args.gpu_id if torch.cuda.is_available() else 'cpu'
+    else:
+        args.device = args.device if torch.cuda.is_available() else 'cpu'
     args.saveDir = 'weights/model_weights'  # path to be saved to
     # ======================================================= Initialize the model
     train_data, train_loader = get_data(args=args, flag='train')
@@ -137,7 +140,6 @@ def run(args):
     # since initializion of the networks requires the seq length of the data
     best_bd = 0
     best_dict = None
-    last_dict = None
     print("model initialized...")
     # ============================================================================
     # ===== Add loss criterion to the args =====
@@ -294,7 +296,7 @@ if __name__ == '__main__':
     best_bd_model = None
     for i in range(3):
         clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def, bd_generator, \
-                                            hidden_count, caught_count, fp_count = run(args)
+                                            hidden_count, caught_count, fp_count = run(args,threaded=False)
         CA_def.append(clean_test_acc_def)
         ASR_def.append(bd_accuracy_test_def)
         CA.append(clean_test_acc)
