@@ -14,6 +14,7 @@ import random
 
 
 def main_thread(args):
+    num_trial = 3
     CA = []
     ASR = []
     CA_def = []
@@ -21,19 +22,29 @@ def main_thread(args):
     args.sim_id = random.randint(1, 9999)
     best_overall = 0
     best_bd_model = None
-    for i in range(3):
-        clean_test_acc, bd_accuracy_test, clean_test_acc_def, bd_accuracy_test_def, bd_generator,\
-            hidden_count, caught_count, fp_count = run(args)
-        CA_def.append(clean_test_acc_def)
-        ASR_def.append(bd_accuracy_test_def)
+    CA_epoch, ASR_epoch = None, None
+    for i in range(num_trial):
+        clean_test_acc, bd_accuracy_test, clean_test_acc_def, bd_accuracy_test_def, bd_generator, \
+            hidden_count, caught_count, fp_count = run(args, threaded=False)
+        if i == 0:
+            CA_epoch = np.asarray(clean_test_acc)
+            ASR_epoch = np.asarray(bd_accuracy_test)
+        else:
+            CA_epoch += np.asarray(clean_test_acc)
+            ASR_epoch += np.asarray(bd_accuracy_test)
+        CA_def.append(clean_test_acc_def[-1])
+        ASR_def.append(bd_accuracy_test_def[-1])
         CA.append(clean_test_acc)
         ASR.append(bd_accuracy_test)
         overall_acc = 0.45 * clean_test_acc + 0.55 * bd_accuracy_test
         if overall_acc > best_overall:
             best_overall = overall_acc
             best_bd_model = bd_generator
+    CA_epoch = CA_epoch / num_trial
+    ASR_epoch = ASR_epoch / num_trial
     save_results(args, np.mean(CA), np.mean(ASR), np.std(CA), np.std(ASR), np.mean(CA_def), np.mean(ASR_def),
-                 np.std(CA_def), np.std(ASR_def), hidden_count, caught_count, fp_count, best_bd_model)
+                 np.std(CA_def), np.std(ASR_def), hidden_count, caught_count, fp_count, best_bd_model, CA_epoch,
+                 ASR_epoch)
 
 
 if __name__ == '__main__':

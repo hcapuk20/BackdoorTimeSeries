@@ -259,7 +259,7 @@ def run(args,threaded=True):
     poisoned_data, bd_train_loader = bd_data_provider2(args, 'train', bd_generator)
     clean_model = get_clean_model(args, train_data, test_data)
     optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr)
-
+    clean_test, bd_test = [], []
     for i in tqdm(range(args.train_epochs_inj)):
         clean_model.train()
         bd_generator.to('cpu')
@@ -267,6 +267,8 @@ def run(args,threaded=True):
         clean_model.eval()
         bd_generator.to(args.device)
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args)
+        clean_test.append(clean_test_acc)
+        bd_test.append(bd_accuracy_test)
         print('Test CA:', clean_test_acc, 'Test ASR:', bd_accuracy_test)
     ## prepare validation data and defence test
     _,val_data = torch.utils.data.random_split(train_data, [.8, .2])
@@ -281,12 +283,13 @@ def run(args,threaded=True):
     epoch_visualize(clean_model, bd_test_loader, poisoned_indices, silent_indices, args)
     print('defences | CA : {}, ASR : {}'.format( clean_test_acc_def, bd_accuracy_test_def))
     print('STRIP Results: hidden:{}, caugth:{}, FP:{}'.format(hidden_count, caught_count, fp_count))
-    return clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def,bd_generator, hidden_count, caught_count, fp_count
+    return clean_test, bd_test,clean_test_acc_def, bd_accuracy_test_def,bd_generator, hidden_count, caught_count, fp_count
 
 
 if __name__ == '__main__':
     # ======================================================= parse args
     args = args_parser()
+    num_trial = 3
     CA = []
     ASR = []
     CA_def = []
@@ -294,16 +297,26 @@ if __name__ == '__main__':
     args.sim_id = random.randint(1,9999)
     best_overall = 0
     best_bd_model = None
-    for i in range(3):
+    CA_epoch,ASR_epoch = None, None
+    for i in range(num_trial):
         clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def, bd_generator, \
                                             hidden_count, caught_count, fp_count = run(args,threaded=False)
-        CA_def.append(clean_test_acc_def)
-        ASR_def.append(bd_accuracy_test_def)
+        if i == 0:
+            CA_epoch = np.asarray(clean_test_acc)
+            ASR_epoch = np.asarray(bd_accuracy_test)
+        else:
+            CA_epoch+= np.asarray(clean_test_acc)
+            ASR_epoch+= np.asarray(bd_accuracy_test)
+        CA_def.append(clean_test_acc_def[-1])
+        ASR_def.append(bd_accuracy_test_def[-1])
         CA.append(clean_test_acc)
         ASR.append(bd_accuracy_test)
         overall_acc = 0.45 * clean_test_acc + 0.55 * bd_accuracy_test
         if overall_acc > best_overall:
             best_overall = overall_acc
             best_bd_model = bd_generator
+    CA_epoch = CA_epoch/num_trial
+    ASR_epoch = ASR_epoch/num_trial
+
     save_results(args, np.mean(CA), np.mean(ASR),np.std(CA),np.std(ASR),np.mean(CA_def),np.mean(ASR_def),
-                    np.std(CA_def), np.std(ASR_def), hidden_count, caught_count, fp_count ,best_bd_model)
+                    np.std(CA_def), np.std(ASR_def), hidden_count, caught_count, fp_count ,best_bd_model,CA_epoch,ASR_epoch)
