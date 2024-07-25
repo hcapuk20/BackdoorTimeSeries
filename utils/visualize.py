@@ -1,3 +1,4 @@
+import os.path
 import random
 
 import numpy as np
@@ -39,6 +40,8 @@ def visualize(clean, poisoned, args):
     dataset = args.root_path.split('/')[-1]
     if len(dataset) < 2:
         dataset = args.root_path.split('/')[-2]
+    if not os.path.exists('visuals'):
+        os.makedirs('visuals')
     save_path = f'visuals/latent_{dataset}_{args.bd_model}_{args.model}_{args.train_mode}.png'
     plt.tight_layout()
     plt.savefig(save_path)

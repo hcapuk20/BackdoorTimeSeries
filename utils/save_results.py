@@ -8,6 +8,7 @@ import torch
 
 
 def log(path,args,sim_id):
+    print('Logging results')
     n_path = path
     f = open(n_path + '/log.txt', 'w+')
     f.write('############## Args ###############' + '\n')
@@ -30,6 +31,7 @@ def save_results(args,ca,asr,ca_std,asr_std,def_ca,def_asr,def_ca_std,def_asr_st
     path = 'Results'
     if not os.path.exists(path):
         os.mkdir(path)
+        print('Results directory created')
     path = os.path.join(path,path_)
     os.mkdir(path)
     log(path,args,sim_id),

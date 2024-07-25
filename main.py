@@ -307,11 +307,11 @@ if __name__ == '__main__':
         else:
             CA_epoch+= np.asarray(clean_test_acc)
             ASR_epoch+= np.asarray(bd_accuracy_test)
-        CA_def.append(clean_test_acc_def[-1])
-        ASR_def.append(bd_accuracy_test_def[-1])
-        CA.append(clean_test_acc)
-        ASR.append(bd_accuracy_test)
-        overall_acc = 0.45 * clean_test_acc + 0.55 * bd_accuracy_test
+        CA_def.append(clean_test_acc_def)
+        ASR_def.append(bd_accuracy_test_def)
+        CA.append(clean_test_acc[-1])
+        ASR.append(bd_accuracy_test[-1])
+        overall_acc = 0.45 * clean_test_acc[-1] + 0.55 * bd_accuracy_test[-1]
         if overall_acc > best_overall:
             best_overall = overall_acc
             best_bd_model = bd_generator
