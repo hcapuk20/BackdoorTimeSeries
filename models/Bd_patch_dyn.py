@@ -51,10 +51,11 @@ class Model(nn.Module):
             h = self.target_token.register_hook(lambda grad: grad * configs.token_hook)
         ######### initialize tokens ##### 
         padding = stride
+        _patch_len = configs.ptst_patch_len if hasattr(configs, 'ptst_patch_len') else patch_len
 
         # patching and embedding
         self.patch_embedding = PatchEmbedding_bd(
-            configs.d_model, patch_len, stride, padding, configs.dropout,self.target_token)
+            configs.d_model, _patch_len, stride, padding, configs.dropout,self.target_token)
 
         # Encoder
         self.encoder = Encoder(
@@ -74,7 +75,7 @@ class Model(nn.Module):
 
         # Prediction Head
         self.head_nf = configs.d_model * \
-                       int((configs.seq_len - patch_len) / stride + 2)
+                       int((configs.seq_len - _patch_len) / stride + 2)
         self.head = FlattenHead(configs.enc_in, self.head_nf, configs.seq_len,
                                     head_dropout=configs.dropout)
         ################ Here we also have a vector of length B targets #################
