@@ -19,9 +19,9 @@ class Model(nn.Module):
         self.label_len = configs.label_len
 
         # Embedding
-        self.enc_embedding = DataEmbedding(configs.enc_in, configs.d_model, configs.embed, configs.freq,
+        self.enc_embedding = DataEmbedding(configs.enc_in, configs.d_model_sur, configs.embed, configs.freq,
                                            configs.dropout)
-        self.dec_embedding = DataEmbedding(configs.dec_in, configs.d_model, configs.embed, configs.freq,
+        self.dec_embedding = DataEmbedding(configs.dec_in, configs.d_model_sur, configs.embed, configs.freq,
                                            configs.dropout)
 
         # Encoder
@@ -34,19 +34,19 @@ class Model(nn.Module):
                     AttentionLayer(
                         ProbAttention(False, configs.factor, attention_dropout=configs.dropout,
                                       output_attention=configs.output_attention),
-                        configs.d_model, configs.n_heads),
-                    configs.d_model,
-                    configs.d_ff,
+                        configs.d_model_sur, configs.n_heads_sur),
+                    configs.d_model_sur,
+                    configs.d_ff_sur,
                     dropout=configs.dropout,
                     activation=configs.activation
-                ) for l in range(configs.e_layers)
+                ) for l in range(configs.e_layers_sur)
             ],
             [
                 ConvLayer(
-                    configs.d_model
-                ) for l in range(configs.e_layers - 1)
+                    configs.d_model_sur
+                ) for l in range(configs.e_layers_sur - 1)
             ] if configs.distil and ('forecast' in configs.task_name) else None,
-            norm_layer=torch.nn.LayerNorm(configs.d_model)
+            norm_layer=torch.nn.LayerNorm(configs.d_model_sur)
         )
         # Decoder
         # consists of two identical multi-head attention layers
@@ -59,28 +59,28 @@ class Model(nn.Module):
                 DecoderLayer(
                     AttentionLayer(
                         ProbAttention(True, configs.factor, attention_dropout=configs.dropout, output_attention=False),
-                        configs.d_model, configs.n_heads),
+                        configs.d_model_sur, configs.n_heads_sur),
                     AttentionLayer(
                         ProbAttention(False, configs.factor, attention_dropout=configs.dropout, output_attention=False),
-                        configs.d_model, configs.n_heads),
-                    configs.d_model,
-                    configs.d_ff,
+                        configs.d_model_sur, configs.n_heads_sur),
+                    configs.d_model_sur,
+                    configs.d_ff_sur,
                     dropout=configs.dropout,
                     activation=configs.activation,
                 )
-                for l in range(configs.d_layers)
+                for l in range(configs.d_layers_sur)
             ],
-            norm_layer=torch.nn.LayerNorm(configs.d_model),
-            projection=nn.Linear(configs.d_model, configs.c_out, bias=True)
+            norm_layer=torch.nn.LayerNorm(configs.d_model_sur),
+            projection=nn.Linear(configs.d_model_sur, configs.c_out, bias=True)
         )
         if self.task_name == 'imputation':
-            self.projection = nn.Linear(configs.d_model, configs.c_out, bias=True)
+            self.projection = nn.Linear(configs.d_model_sur, configs.c_out, bias=True)
         if self.task_name == 'anomaly_detection':
-            self.projection = nn.Linear(configs.d_model, configs.c_out, bias=True)
+            self.projection = nn.Linear(configs.d_model_sur, configs.c_out, bias=True)
         if self.task_name == 'classification':
             self.act = F.gelu
             self.dropout = nn.Dropout(configs.dropout)
-            self.projection = nn.Linear(configs.d_model * configs.seq_len, configs.num_class)
+            self.projection = nn.Linear(configs.d_model_sur * configs.seq_len, configs.num_class)
 
     def long_forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         enc_out = self.enc_embedding(x_enc, x_mark_enc)
@@ -132,7 +132,7 @@ class Model(nn.Module):
         output = self.act(enc_out)  # the output transformer encoder/decoder embeddings don't include non-linearity
         output = self.dropout(output)
         output = output * x_mark_enc.unsqueeze(-1)  # zero-out padding embeddings
-        output = output.reshape(output.shape[0], -1)  # (batch_size, seq_length * d_model)
+        output = output.reshape(output.shape[0], -1)  # (batch_size, seq_length * d_model_sur)
         if visualize is not None:
             latent = output
             output = self.projection(output)

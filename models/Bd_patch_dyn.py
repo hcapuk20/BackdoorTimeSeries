@@ -21,7 +21,7 @@ class FlattenHead(nn.Module):
         self.linear = nn.Linear(nf, target_window)
         self.dropout = nn.Dropout(head_dropout)
 
-    def forward(self, x):  # x: [bs x nvars x d_model x patch_num]
+    def forward(self, x):  # x: [bs x nvars x d_model_bd x patch_num]
         x = self.flatten(x)
         x = self.linear(x)
         x = self.dropout(x)
@@ -44,8 +44,8 @@ class Model(nn.Module):
         self.pred_len = configs.seq_len
         self.numb_class = configs.numb_class
         self.clip_ratio = configs.clip_ratio
-        self.d_model = configs.d_model
-        self.target_token = torch.nn.Parameter(torch.Tensor(configs.numb_class,configs.d_model), requires_grad=configs.trainable_token) # C (numb_class x d_model) size matrix of trainable weights of target tokens
+        self.d_model_bd = configs.d_model_bd
+        self.target_token = torch.nn.Parameter(torch.Tensor(configs.numb_class,configs.d_model_bd), requires_grad=configs.trainable_token) # C (numb_class x d_model_bd) size matrix of trainable weights of target tokens
         nn.init.orthogonal_(self.target_token)
         if configs.trainable_token:
             h = self.target_token.register_hook(lambda grad: grad * configs.token_hook)
@@ -55,7 +55,7 @@ class Model(nn.Module):
 
         # patching and embedding
         self.patch_embedding = PatchEmbedding_bd(
-            configs.d_model, _patch_len, stride, padding, configs.dropout,self.target_token)
+            configs.d_model_bd, _patch_len, stride, padding, configs.dropout,self.target_token)
 
         # Encoder
         self.encoder = Encoder(
@@ -63,18 +63,18 @@ class Model(nn.Module):
                 EncoderLayer(
                     AttentionLayer(
                         FullAttention(False, configs.factor, attention_dropout=configs.dropout,
-                                      output_attention=configs.output_attention), configs.d_model, configs.n_heads),
-                    configs.d_model,
-                    configs.d_ff,
+                                      output_attention=configs.output_attention), configs.d_model_bd, configs.n_heads_bd),
+                    configs.d_model_bd,
+                    configs.d_ff_bd,
                     dropout=configs.dropout,
                     activation=configs.activation
-                ) for l in range(configs.e_layers)
+                ) for l in range(configs.e_layers_bd)
             ],
-            norm_layer=torch.nn.LayerNorm(configs.d_model)
+            norm_layer=torch.nn.LayerNorm(configs.d_model_bd)
         )
 
         # Prediction Head
-        self.head_nf = configs.d_model * \
+        self.head_nf = configs.d_model_bd * \
                        int((configs.seq_len - _patch_len) / stride + 2)
         self.head = FlattenHead(configs.enc_in, self.head_nf, configs.seq_len,
                                     head_dropout=configs.dropout)
@@ -89,11 +89,11 @@ class Model(nn.Module):
         x_enc /= stdev
         # do patching and embedding
         x_enc = x_enc.permute(0, 2, 1)
-        # u: [bs * nvars x patch_num x d_model]
+        # u: [bs * nvars x patch_num x d_model_bd]
         enc_out, n_vars = self.patch_embedding(x_enc,targets)
         ############# embedding the target tokens  ############## can be revised or optimized
         ## For each given batch of samples and targets we generate batch of target token to be appended beginning of the patch sequence
-        ### the shape of the target tokens B x n_vars x 1 x d_model
+        ### the shape of the target tokens B x n_vars x 1 x d_model_bd
 
         ###### concatenate targs_token with enc_out
       
@@ -101,12 +101,12 @@ class Model(nn.Module):
       
 
         # Encoder
-        # z: [bs * nvars x patch_num x d_model]
+        # z: [bs * nvars x patch_num x d_model_bd]
         enc_out, attns = self.encoder(enc_out)
-        # z: [bs x nvars x patch_num x d_model]
+        # z: [bs x nvars x patch_num x d_model_bd]
         enc_out = torch.reshape(
             enc_out, (-1, n_vars, enc_out.shape[-2], enc_out.shape[-1]))
-        # z: [bs x nvars x d_model x patch_num]
+        # z: [bs x nvars x d_model_bd x patch_num]
         enc_out = enc_out.permute(0, 1, 3, 2)
         # Decoder
         dec_out = self.head(enc_out[:,:,:,1:])  # z: [bs x nvars x target_window]

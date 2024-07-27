@@ -20,7 +20,7 @@ class Model(nn.Module):
         self.pred_len = self.seq_len
         self.output_attention = configs.output_attention
         # Embedding
-        self.enc_embedding = DataEmbedding_inverted(configs.seq_len, configs.d_model, configs.embed, configs.freq,
+        self.enc_embedding = DataEmbedding_inverted(configs.seq_len, configs.d_model_bd, configs.embed, configs.freq,
                                                     configs.dropout)
         # Encoder
         self.encoder = Encoder(
@@ -28,17 +28,17 @@ class Model(nn.Module):
                 EncoderLayer(
                     AttentionLayer(
                         FullAttention(False, configs.factor, attention_dropout=configs.dropout,
-                                      output_attention=configs.output_attention), configs.d_model, configs.n_heads),
-                    configs.d_model,
-                    configs.d_ff,
+                                      output_attention=configs.output_attention), configs.d_model_bd, configs.n_heads_bd),
+                    configs.d_model_bd,
+                    configs.d_ff_bd,
                     dropout=configs.dropout,
                     activation=configs.activation
-                ) for l in range(configs.e_layers)
+                ) for l in range(configs.e_layers_bd)
             ],
-            norm_layer=torch.nn.LayerNorm(configs.d_model)
+            norm_layer=torch.nn.LayerNorm(configs.d_model_bd)
         )
-        ############ latent to serie mapping d_model --> T 
-        self.projection = nn.Linear(configs.d_model, self.seq_len, bias=True) ### fıx bug
+        ############ latent to serie mapping d_model_bd --> T 
+        self.projection = nn.Linear(configs.d_model_bd, self.seq_len, bias=True) ### fıx bug
     def trigger_gen(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         # Normalization from Non-stationary Transformer
         means = x_enc.mean(1, keepdim=True).detach()
@@ -50,10 +50,10 @@ class Model(nn.Module):
         # Embedding
         #print(x_enc.shape, x_mark_enc.shape)
         ##### Map each sub-serie to a token T ---> dmodel
-        enc_out = self.enc_embedding(x_enc, None)  # B x T x d_model
-        ##### Perform attention over tokens (channel-wise (variables)) ===> B x N x d_model (?)
+        enc_out = self.enc_embedding(x_enc, None)  # B x T x d_model_bd
+        ##### Perform attention over tokens (channel-wise (variables)) ===> B x N x d_model_bd (?)
         enc_out, attns = self.encoder(enc_out, attn_mask=None)
-        ###### Final phase to generate trigger from latent d_model ---> T (we go back to time domain)
+        ###### Final phase to generate trigger from latent d_model_bd ---> T (we go back to time domain)
         dec_out = self.projection(enc_out)
         ###### change the channel and time dimension (this is the original format) 
         dec_out = dec_out.permute(0, 2, 1)[:, :, :N]
