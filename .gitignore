@@ -1,4 +1,10 @@
 dataset/*
+weights/*
+Results/*
+trigger_figs/*
+visuals/*
+tmp_utils
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
