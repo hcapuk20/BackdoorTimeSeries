@@ -36,10 +36,10 @@ class Model(nn.Module):
         self.pred_len = configs.seq_len
         self.clip_ratio = configs.clip_ratio
         padding = stride
-
+        _patch_len = configs.ptst_patch_len if hasattr(configs, 'ptst_patch_len') else patch_len
         # patching and embedding
         self.patch_embedding = PatchEmbedding(
-            configs.d_model, patch_len, stride, padding, configs.dropout)
+            configs.d_model, _patch_len, stride, padding, configs.dropout)
 
         # Encoder
         self.encoder = Encoder(
@@ -59,7 +59,7 @@ class Model(nn.Module):
 
         # Prediction Head
         self.head_nf = configs.d_model * \
-                       int((configs.seq_len - patch_len) / stride + 2)
+                       int((configs.seq_len - _patch_len) / stride + 2)
         self.head = FlattenHead(configs.enc_in, self.head_nf, configs.seq_len,
                                     head_dropout=configs.dropout)
     def trigger_gen(self, x_enc):
