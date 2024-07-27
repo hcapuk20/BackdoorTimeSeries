@@ -42,10 +42,10 @@ class TimesBlock(nn.Module):
         self.k = configs.top_k # determines how many top frequencies will be considered
         # parameter-efficient design
         self.conv = nn.Sequential(
-            Inception_Block_V1(configs.d_model, configs.d_ff,
+            Inception_Block_V1(configs.d_model_sur, configs.d_ff_sur,
                                num_kernels=configs.num_kernels),
             nn.GELU(),
-            Inception_Block_V1(configs.d_ff, configs.d_model,
+            Inception_Block_V1(configs.d_ff_sur, configs.d_model_sur,
                                num_kernels=configs.num_kernels)
         )
 
@@ -112,32 +112,32 @@ class Model(nn.Module):
         self.label_len = configs.label_len
         self.pred_len = configs.pred_len
 
-        # stack TimesBlock for e_layers times to form the main part of TimesNet, named model
+        # stack TimesBlock for e_layers_sur times to form the main part of TimesNet, named model
         self.model = nn.ModuleList([TimesBlock(configs)
-                                    for _ in range(configs.e_layers)])
+                                    for _ in range(configs.e_layers_sur)])
         
         # embedding and normalization part
         # enc_in is the encoder input size, the number of features for a piece of data
-        # d_model is the dimension of embedding
-        self.enc_embedding = DataEmbedding(configs.enc_in, configs.d_model, configs.embed, configs.freq,
+        # d_model_sur is the dimension of embedding
+        self.enc_embedding = DataEmbedding(configs.enc_in, configs.d_model_sur, configs.embed, configs.freq,
                                            configs.dropout)
-        self.layer = configs.e_layers
-        self.layer_norm = nn.LayerNorm(configs.d_model)
+        self.layer = configs.e_layers_sur
+        self.layer_norm = nn.LayerNorm(configs.d_model_sur)
 
         # create layers that will handle different tasks
         if self.task_name == 'long_term_forecast' or self.task_name == 'short_term_forecast':
             self.predict_linear = nn.Linear(
                 self.seq_len, self.pred_len + self.seq_len)
             self.projection = nn.Linear(
-                configs.d_model, configs.c_out, bias=True)
+                configs.d_model_sur, configs.c_out, bias=True)
         if self.task_name == 'imputation' or self.task_name == 'anomaly_detection':
             self.projection = nn.Linear(
-                configs.d_model, configs.c_out, bias=True)
+                configs.d_model_sur, configs.c_out, bias=True)
         if self.task_name == 'classification':
             self.act = F.gelu
             self.dropout = nn.Dropout(configs.dropout)
             self.projection = nn.Linear(
-                configs.d_model * configs.seq_len, configs.num_class)
+                configs.d_model_sur * configs.seq_len, configs.num_class)
 
     def forecast(self, x_enc, x_mark_enc, x_dec, x_mark_dec):
         # Normalization from Non-stationary Transformer
@@ -233,7 +233,7 @@ class Model(nn.Module):
         output = self.dropout(output)
         # zero-out padding embeddings
         output = output * x_mark_enc.unsqueeze(-1)
-        # (batch_size, seq_length * d_model)
+        # (batch_size, seq_length * d_model_sur)
         output = output.reshape(output.shape[0], -1)
         if visualize is not None:
             latent = output

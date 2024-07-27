@@ -49,6 +49,7 @@ def main_thread(args):
 
 if __name__ == '__main__':
     args = args_parser()
+    args.multi_thread = True
     worker_per_device = args.worker_per_device
     cuda = args.use_gpu
     cuda_info = None

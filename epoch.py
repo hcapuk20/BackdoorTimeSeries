@@ -321,7 +321,7 @@ def epoch(bd_model,surr_model, loader, args, opt=None,opt2=None,train=True): ###
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     return total_loss,loss_dict, accuracy,bd_accuracy
 
-def epoch_with_diversity(bd_model,surr_model, loader1, args, loader2=None, opt=None,opt2=None,train=True): ##### The main training module
+def epoch_with_diversity(bd_model,surr_model, loader1, args, loader2=None, opt=None,opt2=None,train=True, mp_scaler=None): ##### The main training module
     total_loss = []
     all_preds = []
     bd_preds = []
@@ -362,7 +362,12 @@ def epoch_with_diversity(bd_model,surr_model, loader1, args, loader2=None, opt=N
 
             #### Combine true and target labels
             ########### Here we generate trigger #####################
-            trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None)
+            if mp_scaler is not None:
+                # Mixed precision
+                with torch.cuda.amp.autocast():
+                    trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None)
+            else:
+                trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None)
             if batch_x2 is not None and args.div_reg:
                 trigger2, trigger_clip2 = bd_model(batch_x2, padding_mask2, None, None)
 
@@ -378,11 +383,17 @@ def epoch_with_diversity(bd_model,surr_model, loader1, args, loader2=None, opt=N
 
                 loss_div = input_distances / (trigger_distances + 1e-6) # second value is the epsilon, arbitrary for now
                 loss_div = torch.mean(loss_div) * args.div_reg # give weight from args
-
-            clean_pred = surr_model(batch_x, padding_mask,None,None)
-            bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
-            loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
-            loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
+            if mp_scaler is not None:
+                with torch.cuda.amp.autocast():
+                    clean_pred = surr_model(batch_x, padding_mask,None,None)
+                    bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
+                    loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
+                    loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
+            else:
+                clean_pred = surr_model(batch_x, padding_mask,None,None)
+                bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
+                loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
+                loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
             loss_reg = reg_loss(batch_x,trigger,trigger_clip,args) ### We can use regularizer loss as well
             if loss_reg is None:
                 loss_reg = torch.zeros_like(loss_bd)
@@ -397,8 +408,13 @@ def epoch_with_diversity(bd_model,surr_model, loader1, args, loader2=None, opt=N
             bds.append(bd_labels)
 
             if opt is not None:
-                loss.backward()
-                opt.step()
+                if mp_scaler is not None:
+                    mp_scaler.scale(loss).backward()
+                    mp_scaler.step(opt)
+                    mp_scaler.update()
+                else:
+                    loss.backward()
+                    opt.step()
             if opt2 is not None:
                 opt2.step()
     total_loss = np.average(total_loss)

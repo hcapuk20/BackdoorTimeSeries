@@ -13,7 +13,7 @@ class FlattenHead(nn.Module):
         self.linear = nn.Linear(nf, target_window)
         self.dropout = nn.Dropout(head_dropout)
 
-    def forward(self, x):  # x: [bs x nvars x d_model x patch_num]
+    def forward(self, x):  # x: [bs x nvars x d_model_bd x patch_num]
         x = self.flatten(x)
         x = self.linear(x)
         x = self.dropout(x)
@@ -36,10 +36,10 @@ class Model(nn.Module):
         self.pred_len = configs.seq_len
         self.clip_ratio = configs.clip_ratio
         padding = stride
-
+        _patch_len = configs.ptst_patch_len if hasattr(configs, 'ptst_patch_len') else patch_len
         # patching and embedding
         self.patch_embedding = PatchEmbedding(
-            configs.d_model, patch_len, stride, padding, configs.dropout)
+            configs.d_model_bd, _patch_len, stride, padding, configs.dropout)
 
         # Encoder
         self.encoder = Encoder(
@@ -47,19 +47,19 @@ class Model(nn.Module):
                 EncoderLayer(
                     AttentionLayer(
                         FullAttention(False, configs.factor, attention_dropout=configs.dropout,
-                                      output_attention=configs.output_attention), configs.d_model, configs.n_heads),
-                    configs.d_model,
-                    configs.d_ff,
+                                      output_attention=configs.output_attention), configs.d_model_bd, configs.n_heads_bd),
+                    configs.d_model_bd,
+                    configs.d_ff_bd,
                     dropout=configs.dropout,
                     activation=configs.activation
-                ) for l in range(configs.e_layers)
+                ) for l in range(configs.e_layers_bd)
             ],
-            norm_layer=torch.nn.LayerNorm(configs.d_model)
+            norm_layer=torch.nn.LayerNorm(configs.d_model_bd)
         )
 
         # Prediction Head
-        self.head_nf = configs.d_model * \
-                       int((configs.seq_len - patch_len) / stride + 2)
+        self.head_nf = configs.d_model_bd * \
+                       int((configs.seq_len - _patch_len) / stride + 2)
         self.head = FlattenHead(configs.enc_in, self.head_nf, configs.seq_len,
                                     head_dropout=configs.dropout)
     def trigger_gen(self, x_enc):
@@ -72,16 +72,16 @@ class Model(nn.Module):
 
         # do patching and embedding
         x_enc = x_enc.permute(0, 2, 1)
-        # u: [bs * nvars x patch_num x d_model]
+        # u: [bs * nvars x patch_num x d_model_bd]
         enc_out, n_vars = self.patch_embedding(x_enc)
 
         # Encoder
-        # z: [bs * nvars x patch_num x d_model]
+        # z: [bs * nvars x patch_num x d_model_bd]
         enc_out, attns = self.encoder(enc_out)
-        # z: [bs x nvars x patch_num x d_model]
+        # z: [bs x nvars x patch_num x d_model_bd]
         enc_out = torch.reshape(
             enc_out, (-1, n_vars, enc_out.shape[-2], enc_out.shape[-1]))
-        # z: [bs x nvars x d_model x patch_num]
+        # z: [bs x nvars x d_model_bd x patch_num]
         enc_out = enc_out.permute(0, 1, 3, 2)
 
         # Decoder
