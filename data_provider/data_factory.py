@@ -57,15 +57,23 @@ def data_provider(args, flag):
             root_path=args.root_path,
             flag=flag,
         )
-
-        data_loader = DataLoader(
-            data_set,
-            batch_size=batch_size,
-            shuffle=shuffle_flag,
-            pin_memory=True,
-            drop_last=drop_last,
-            collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
-        )
+        if not args.multi_thread:
+            data_loader = DataLoader(
+                data_set,
+                batch_size=batch_size,
+                shuffle=shuffle_flag,
+                num_workers=args.num_workers,
+                drop_last=drop_last,
+                collate_fn=lambda x: collate_fn(x, max_len=args.seq_len))
+        else:
+            data_loader = DataLoader(
+                data_set,
+                batch_size=batch_size,
+                shuffle=shuffle_flag,
+                pin_memory=True,
+                drop_last=drop_last,
+                collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
+            )
         return data_set, data_loader
     else:
         if args.data == 'm4':
@@ -106,15 +114,23 @@ def custom_data_loader(dataset,args,flag,force_bs=None):
 
     if force_bs is not None:
         batch_size = force_bs
-
-    data_loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle_flag,
-        pin_memory=True,
-        drop_last=drop_last,
-        collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
-    )
+    if not args.multi_thread:
+        data_loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=shuffle_flag,
+            num_workers=args.num_workers,
+            drop_last=drop_last,
+        collate_fn=lambda x: collate_fn(x, max_len=args.seq_len))
+    else:
+        data_loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=shuffle_flag,
+            pin_memory=True,
+            drop_last=drop_last,
+            collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
+        )
     return data_loader
 
 
@@ -140,15 +156,23 @@ def bd_data_provider(args, flag,bd_model):
         root_path=args.root_path,
         flag=flag,max_len=args.seq_len,enc_in=args.enc_in
     )
-
-    data_loader = DataLoader(
-        data_set,
-        batch_size=batch_size,
-        shuffle=shuffle_flag,
-        pin_memory=True,
-        drop_last=drop_last,
-        collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
-    )
+    if not args.multi_thread:
+        data_loader = DataLoader(
+            data_set,
+            batch_size=batch_size,
+            shuffle=shuffle_flag,
+            num_workers=args.num_workers,
+            drop_last=drop_last,
+            collate_fn=lambda x: collate_fn_bd(x,bd_model, max_len=args.seq_len,target_label=args.target_label))
+    else:
+        data_loader = DataLoader(
+            data_set,
+            batch_size=batch_size,
+            shuffle=shuffle_flag,
+            pin_memory=True,
+            drop_last=drop_last,
+            collate_fn=lambda x: collate_fn(x, max_len=args.seq_len)
+        )
     return data_set,data_loader
 
 
@@ -173,15 +197,23 @@ def bd_data_provider2(args, flag,bd_model):
         silent_poision=args.silent_poisoning,target_label=args.target_label,
         root_path=args.root_path, flag=flag
     )
-
-    data_loader = DataLoader(
-        data_set,
-        batch_size=batch_size,
-        shuffle=shuffle_flag,
-        pin_memory=True,
-        drop_last=drop_last,
-        collate_fn=lambda x: collate_fn_bd(x,bd_model, max_len=args.seq_len,target_label=args.target_label)
-    )
+    if not args.multi_thread:
+        data_loader = DataLoader(
+            data_set,
+            batch_size=batch_size,
+            shuffle=shuffle_flag,
+            num_workers=args.num_workers,
+            drop_last=drop_last,
+            collate_fn=lambda x: collate_fn_bd(x,bd_model, max_len=args.seq_len,target_label=args.target_label))
+    else:
+        data_loader = DataLoader(
+            data_set,
+            batch_size=batch_size,
+            shuffle=shuffle_flag,
+            pin_memory=True,
+            drop_last=drop_last,
+            collate_fn=lambda x: collate_fn_bd(x,bd_model, max_len=args.seq_len,target_label=args.target_label)
+        )
 
 
 
