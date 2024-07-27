@@ -4,6 +4,7 @@ import random
 import numpy as np
 import torch.nn as nn
 import torch.optim.lr_scheduler
+import uuid
 
 from data_provider.data_factory import data_provider, custom_data_loader,bd_data_provider,bd_data_provider2
 from models import * # Here we import the architecture
@@ -125,7 +126,8 @@ def run(args,threaded=True):
         args.device = args.gpu_id if torch.cuda.is_available() else 'cpu'
     else:
         args.device = args.device if torch.cuda.is_available() else 'cpu'
-    args.saveDir = 'weights/model_weights'  # path to be saved to
+    # Generate random UUID for the simulation    
+    args.saveDir = f"weights/{str(uuid.uuid4())}"  # path to be saved to
     # ======================================================= Initialize the model
     train_data, train_loader = get_data(args=args, flag='train')
     train_loader2 = get_data(args=args, flag='train')[1] if args.div_reg else None
@@ -211,10 +213,9 @@ def run(args,threaded=True):
             if best_bd <= bd_test_acc:
                 best_bd = bd_test_acc
                 best_dict = bd_model.state_dict()
-                if not os.path.exists('weights'):
-                    os.makedirs('weights')
-                torch.save(bd_model.trigger.state_dict(), 'weights/best_bd_model_weights.pth')
-            torch.save(bd_model.trigger.state_dict(), 'weights/last_bd_model_weights.pth')
+                os.makedirs(args.saveDir, exists_ok=True)
+                torch.save(bd_model.trigger.state_dict(), os.path.join(args.saveDir, "best_bd_model_weights.pth"))
+            torch.save(bd_model.trigger.state_dict(), os.path.join(args.saveDir, "last_bd_model_weights.pth"))
         # last_dict = bd_model.state_dict()
 
         print('Starting clean model training with backdoor samples...')
@@ -224,7 +225,7 @@ def run(args,threaded=True):
 
     else:
         print('Loading pretrained Backdoor trigger generator model...')
-        path = 'weights/' + args.load_bd_model
+        path = os.path.join(args.saveDir, args.load_bd_model)
         dicts = torch.load(path)
         bd_generator = bd_model.trigger
         bd_generator.load_state_dict(dicts)
