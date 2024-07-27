@@ -100,12 +100,10 @@ def args_parser():
                         help='1: channel dependence 0: channel independence for FreTS model')
 
     # optimization
-    parser.add_argument('--num_workers', type=int, default=1, help='data loader num workers')
+    parser.add_argument('--num_workers', type=int, default=8, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='optimizer learning rate')
-    parser.add_argument('--des', type=str, default='exp', help='exp description')
-    parser.add_argument('--loss', type=str, default='CE', help='loss function')
     parser.add_argument('--lradj', type=str, default='type1', help='adjust learning rate')
     parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
 
@@ -113,6 +111,7 @@ def args_parser():
     parser.add_argument('--gpu', type=int, default=0, help='gpu')
     parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)
     parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')
+    parser.add_argument('--multi_thread', type=bool, default=False, help='Use True if you run main_th.py, disables num_workers in dataloader')
 
     # de-stationary projector params
     parser.add_argument('--p_hidden_dims', type=int, nargs='+', default=(128, 128),
