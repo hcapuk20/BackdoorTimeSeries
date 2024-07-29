@@ -654,7 +654,7 @@ def epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model, loade
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     return total_loss,loss_dict, accuracy,bd_accuracy
 
-def epoch_clean_train2(model, loader, args,optimiser): #for training clean model with fraction of backdoored data
+def epoch_clean_train2(model, loader, args,optimiser, mp_scaler=None): #for training clean model with fraction of backdoored data
     # loader here contains the backdoor generator, and generates trigger
     # for the spesific indices in the dataset
     model.train()
@@ -667,13 +667,23 @@ def epoch_clean_train2(model, loader, args,optimiser): #for training clean model
         batch_x = batch_x.float().to(args.device)
         padding_mask = padding_mask.float().to(args.device)
         label = label.to(args.device)
-        outs = model(batch_x, padding_mask, None, None)
-        loss = args.criterion(outs, label.long().squeeze(-1))
+        if mp_scaler is not None:
+            with torch.cuda.amp.autocast():
+                outs = model(batch_x, padding_mask, None, None)
+                loss = args.criterion(outs, label.long().squeeze(-1))
+        else:
+            outs = model(batch_x, padding_mask, None, None)
+            loss = args.criterion(outs, label.long().squeeze(-1))
         total_loss.append(loss.item())
         preds.append(outs.detach())
         trues.append(label)
-        loss.backward()
-        optimiser.step()
+        if mp_scaler is not None:
+            mp_scaler.scale(loss).backward()
+            mp_scaler.step(optimiser)
+            mp_scaler.update()
+        else:
+            loss.backward()
+            optimiser.step()
     total_loss = np.average(total_loss)
     preds = torch.cat(preds, 0)
     trues = torch.cat(trues, 0)

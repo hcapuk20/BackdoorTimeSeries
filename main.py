@@ -213,7 +213,7 @@ def run(args,threaded=True):
             if best_bd <= bd_test_acc:
                 best_bd = bd_test_acc
                 best_dict = bd_model.state_dict()
-                os.makedirs(args.saveDir, exists_ok=True)
+                os.makedirs(args.saveDir, exist_ok=True)
                 torch.save(bd_model.trigger.state_dict(), os.path.join(args.saveDir, "best_bd_model_weights.pth"))
             torch.save(bd_model.trigger.state_dict(), os.path.join(args.saveDir, "last_bd_model_weights.pth"))
         # last_dict = bd_model.state_dict()
@@ -247,6 +247,8 @@ def run(args,threaded=True):
 
     #### START OF THE NEW TRANING WITH TRAINED TRIGGER GENERATOR
     bd_generator.eval()
+    for param in bd_generator.parameters():
+        param.requires_grad = False
     poisoned_data, bd_train_loader = bd_data_provider2(args, 'train', bd_generator)
     clean_model = get_clean_model(args, train_data, test_data)
     optimizer = torch.optim.Adam(clean_model.parameters(), lr=args.lr)
@@ -254,7 +256,7 @@ def run(args,threaded=True):
     for i in tqdm(range(args.train_epochs_inj)):
         clean_model.train()
         bd_generator.to('cpu')
-        train_loss, train_accuracy, _ = epoch_clean_train2(clean_model,bd_train_loader,args,optimizer)
+        train_loss, train_accuracy, _ = epoch_clean_train2(clean_model,bd_train_loader,args,optimizer, mp_scaler=scaler)
         clean_model.eval()
         bd_generator.to(args.device)
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args)
