@@ -271,7 +271,7 @@ def run(args,threaded=True):
     clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series, visualize)
     # STRIP
     poisoned_data, bd_test_loader, poisoned_indices, silent_indices = bd_data_provider2(args, 'test', bd_generator)
-    hidden_count, caught_count, fp_count = defence_test_strip(clean_model, bd_test_loader, train_loader, poisoned_indices, silent_indices, args)
+    hidden_count, caught_count, fp_count = defence_test_strip(clean_model, bd_test_loader, test_loader, poisoned_indices, silent_indices, args)
     # visualize latents (new)
     epoch_visualize(clean_model, bd_test_loader, poisoned_indices, silent_indices, args)
     print('defences | CA : {}, ASR : {}'.format( clean_test_acc_def, bd_accuracy_test_def))

@@ -6,6 +6,7 @@ from defences.fp import Pruning
 from defences.nc import main as nc_main
 from defences.strip import cleanser
 from utils.visualize import visualize2
+from sklearn.metrics import confusion_matrix
 
 
 ################# Related works with Code #############
@@ -883,12 +884,17 @@ def defence_test_strip(clean_model, poisoned_loader, clean_loader, poisoned_indi
     backdoored_indices = set(backdoored_indices)
     suspicious_indices = set([index.item() for index in suspicious_indices])
 
-    hidden_backdoor_index_count = len((backdoored_indices - suspicious_indices))
-    fp_count = len((suspicious_indices - backdoored_indices))
+    susp_ind = np.zeros(len(poisoned_loader.dataset))
+    true_ind = np.zeros(len(poisoned_loader.dataset))
 
-    caught_index_count = len((backdoored_indices & suspicious_indices))
+    for i in suspicious_indices:
+        susp_ind[i] = 1
+    for i in backdoored_indices:
+        true_ind[i] = 1
 
-    return hidden_backdoor_index_count, caught_index_count, fp_count
+    TN, FP, FN, TP = confusion_matrix(true_ind, susp_ind).ravel()
+
+    return FN, TP, FP
 
 
 def epoch_visualize(clean_model, bd_loader,poisoned_indices, silent_indices, args): ## for testing the backdoored clean model
