@@ -32,7 +32,6 @@ from utils.plot import plot_time_series
 from utils.visualize import visualize
 from copy import deepcopy
 from epoch_cross import epoch_marksman_lam_cross
-from torch.cuda.amp import GradScaler
 
 model_dict = {
     'TimesNet': TimesNet,
@@ -152,7 +151,7 @@ def run(args,threaded=True):
     args.criterion_bd = nn.CrossEntropyLoss(label_smoothing=args.label_smooth)
     opt_surr = None
     ## GRAD SCALER FOR MIXED PRECISION
-    scaler = GradScaler() if args.use_mp else None
+    scaler = torch.amp.GradScaler("cuda") if args.use_mp else None
 
     if args.load_bd_model is None:
         ### Experimental
@@ -185,16 +184,16 @@ def run(args,threaded=True):
                 train_loss, train_dic, train_acc, bd_train_acc = epoch_with_diversity(bd_model, surr_model, train_loader, args, loader2=train_loader2, opt=opt_bd, opt2=None, mp_scaler=scaler)
                 test_loss, test_dic, test_acc, bd_test_acc = epoch_with_diversity(bd_model, surr_model, test_loader, args,train=False, mp_scaler=scaler)
             elif args.train_mode == '2opt':
-                train_loss, train_dic, train_acc, bd_train_acc = epoch_with_diversity(bd_model, surr_model, train_loader, args, loader2=train_loader2, opt=opt_bd, opt2=opt_surr)
-                test_loss, test_dic, test_acc, bd_test_acc = epoch_with_diversity(bd_model, surr_model, test_loader, args,train=False)
+                train_loss, train_dic, train_acc, bd_train_acc = epoch_with_diversity(bd_model, surr_model, train_loader, args, loader2=train_loader2, opt=opt_bd, opt2=opt_surr, mp_scaler=scaler)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_with_diversity(bd_model, surr_model, test_loader, args,train=False, mp_scaler=scaler)
             elif args.train_mode == 'marksman':
-                train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev ,surr_model, train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr)               
-                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev, surr_model, test_loader, args,train=False)
+                train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev ,surr_model, train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr, mp_scaler=scaler)               
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev, surr_model, test_loader, args,train=False, mp_scaler=scaler)
             elif args.train_mode == 'marksman_lam':
                 train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model,
-                                                                                train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr)
+                                                                                train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr, mp_scaler=scaler)
                 test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model,
-                                                                            test_loader, args, train=False)
+                                                                            test_loader, args, train=False, mp_scaler=scaler)
             # elif args.train_mode == 'marksman_lam_cross':
             #     train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_lam_cross(bd_model, bd_model_prev, surr_model,
             #                                                                         train_loader, args, opt_bd,
