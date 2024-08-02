@@ -190,7 +190,6 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
     bds = []
     bd_label = args.target_label
     loss_dict = {'CE_c':[],'CE_bd':[],'reg':[]}
-    ratio = args.poisoning_ratio_train
     bd_model_prev.eval() ## ----> trigger gnerator for classifier is in evaluation mode
     if train:
         surr_model.train()
@@ -613,23 +612,25 @@ def epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model, loade
         ########### First train surrogate classifier with frozen trigger #####################
         with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
             trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None,bd_labels) # generate trigger with frozen model
+            batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip, alpha=2, beta=2) # generate mix_batch
             clean_pred = surr_model(batch_x, padding_mask,None,None)
-            bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
-            loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
-            loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
-            loss_class = loss_clean + loss_bd
+            bd_pred = surr_model(batch_mix, padding_mask,None,None)
+            loss_bd = args.criterion_mix(bd_pred, bd_labels.long().squeeze(-1))  # output size of batch
+            loss_clean = args.criterion_mix(bd_pred, label.long().squeeze(-1))  # output size of batch
+            loss_class = torch.mean(loss_bd * scale_weights + loss_clean * (1-scale_weights))
+            #loss_class = loss_clean + loss_bd
         total_loss.append(loss_class.item())
         all_preds.append(clean_pred)
         bd_preds.append(bd_pred)
         trues.append(label)
         bds.append(bd_labels)
-        loss_dict['CE_c'].append(loss_class.item())
-        loss_dict['CE_bd'].append(loss_bd.item())
+        loss_dict['CE_c'].append(loss_clean.mean().item())
+        loss_dict['CE_bd'].append(loss_bd.mean().item())
         if opt_class is not None:
             if mp_scaler is not None:
                 mp_scaler.scale(loss_class).backward()
                 mp_scaler.step(opt_class)
-                mp_scaler.update()            
+                mp_scaler.update()
             else:
                 loss_class.backward()
                 opt_class.step()
@@ -653,16 +654,15 @@ def epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model, loade
 
                 loss_div = input_distances / (trigger_distances + 1e-6) # second value is the epsilon, arbitrary for now
                 loss_div = torch.mean(loss_div) * args.div_reg # give weight from args
-        batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip, alpha=2, beta=2) # generate mix_batch
+        #batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip, alpha=2, beta=2) # generate mix_batch
         with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
-            bd_pred = surr_model(batch_mix, padding_mask,None,None) # surrogate classifier in eval mode
-            ######## here we combine two loss one for each label 
-            loss_bd = args.criterion_mix(bd_pred, bd_labels.long().squeeze(-1)) # output size of batch
-            loss_clean = args.criterion_mix(bd_pred, label.long().squeeze(-1)) # output size of batch
-            #loss_reg = l2_reg(trigger_clip, trigger) ### We can use regularizer loss as well
+            bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None) # surrogate classifier in eval mode
+            ######## here we combine two loss one for each label
+            loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1)) # output size of batch
+            #loss_clean = args.criterion_mix(bd_pred, label.long().squeeze(-1)) # output size of batch
             loss_reg = reg_loss(batch_x,trigger,trigger_clip,args) ### We can use regularizer loss as well
-            loss_trig = torch.mean(loss_bd * scale_weights + loss_clean * (1-scale_weights)) ## sum loss can be converted to average
-            loss_trig = loss_trig + loss_div
+            #loss_trig = torch.mean(loss_bd * scale_weights + loss_clean * (1-scale_weights)) ## sum loss can be converted to average
+            loss_trig = loss_bd + loss_div
             if loss_reg is not None:
                 loss_trig += loss_reg
                 loss_dict['reg'].append(loss_reg.item())
