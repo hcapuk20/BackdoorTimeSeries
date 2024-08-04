@@ -25,18 +25,21 @@ class STRIP():
 
         self.model = model
 
+        clean_set = []
+        for i, (batch_x, _, _) in enumerate(self.clean_loader):
+            clean_set.append(batch_x)
+        self.clean_set = torch.cat(clean_set)
 
     def cleanse(self):
-
         # choose a decision boundary with the test set
         clean_entropy = []
-        #clean_set_loader = torch.utils.data.DataLoader(self.clean_set, batch_size=128, shuffle=False)
+
         for i, (batch_x, label, padding_mask) in enumerate(self.clean_loader):
             self.model.zero_grad()
             batch_x = batch_x.float().to(self.args.device)
             label = label.to(self.args.device)
             padding_mask = padding_mask.to(self.args.device)
-            entropies = self.check(batch_x, label, padding_mask, self.clean_loader)
+            entropies = self.check(batch_x, label, padding_mask, self.clean_set)
             for e in entropies:
                 clean_entropy.append(e)
         clean_entropy = torch.FloatTensor(clean_entropy)
@@ -53,7 +56,7 @@ class STRIP():
             batch_x = batch_x.float().to(self.args.device)
             label = label.to(self.args.device)
             padding_mask = padding_mask.to(self.args.device)
-            entropies = self.check(batch_x, label, padding_mask, self.clean_loader)
+            entropies = self.check(batch_x, label, padding_mask, self.clean_set)
             for e in entropies:
                 all_entropy.append(e)
         all_entropy = torch.FloatTensor(all_entropy)
@@ -61,17 +64,15 @@ class STRIP():
         suspicious_indices = torch.logical_or(all_entropy < threshold_low, all_entropy > threshold_high).nonzero().reshape(-1)
         return suspicious_indices
 
-    def check(self, _input, _label=None, padding_mask=None, source_loader=None):
+    def check(self, _input, _label=None, padding_mask=None, source_set=None):
         _list = []
-
-        samples = list(range(len(source_loader.dataset)))
+        samples = list(range(len(source_set)))
         random.shuffle(samples)
         samples = samples[:self.N]
+
         with torch.no_grad():
             for i in samples:
-                n = i % self.args.batch_size
-                i = i // self.args.batch_size
-                X = get_nth_item_from_dataloader(source_loader, i, n)
+                X = source_set[i]
                 X = X.to(self.args.device)
                 _test = self.superimpose(_input, X)
                 entropy = self.entropy(_test, padding_mask).cpu().detach()
@@ -91,18 +92,12 @@ class STRIP():
         p = torch.nn.Softmax(dim=1)(self.model(_input, padding_mask, None, None)) + 1e-8
         return (-p * p.log()).sum(1)
 
-def cleanser(inspection_set, clean_set, model, args):
+def cleanser(inspection_set, clean_loader, model, args):
     """
         adapted from : https://github.com/hsouri/Sleeper-Agent/blob/master/forest/filtering_defenses.py
     """
-
-
-    worker = STRIP( args, inspection_set, clean_set, model, strip_alpha=1.0, N=100, defense_fpr=0.1, batch_size=64)
+    worker = STRIP( args, inspection_set, clean_loader, model, strip_alpha=1.0, N=100, defense_fpr=0.1, batch_size=64)
     suspicious_indices = worker.cleanse()
 
     return suspicious_indices
-
-def get_nth_item_from_dataloader(dataloader, i, n):
-    for index, (batch_x, label, padding_mask)  in enumerate(dataloader):
-        if index == i:
-            return batch_x[n]
+        
