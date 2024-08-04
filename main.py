@@ -267,7 +267,7 @@ def run(args,threaded=True):
     val_loader = custom_data_loader(val_data, args, flag='train', force_bs=16)
     clean_test_acc_def, bd_accuracy_test_def = defence_test_fp(bd_generator, clean_model,val_loader, test_loader, args)
     # one final test epoch to save plots.
-    clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series, visualize)
+    clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
     # STRIP
     poisoned_data, bd_test_loader, poisoned_indices, silent_indices = bd_data_provider2(args, 'test', bd_generator)
     hidden_count, caught_count, fp_count = defence_test_strip(clean_model, bd_test_loader, test_loader, poisoned_indices, silent_indices, args)

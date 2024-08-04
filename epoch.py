@@ -5,7 +5,7 @@ from utils.model_ops import *
 from defences.fp import Pruning
 from defences.nc import main as nc_main
 from defences.strip import cleanser
-from utils.visualize import visualize2
+from utils.visualize import visualize
 from sklearn.metrics import confusion_matrix
 
 ######### For avoiding code duplication with auto_mp checks
@@ -731,14 +731,11 @@ def epoch_clean_train2(model, loader, args,optimiser, mp_scaler=None): #for trai
     accuracy = cal_accuracy(predictions, trues)
     return total_loss, accuracy, bd_accuracy
 
-def epoch_clean_test(bd_model,clean_model, loader,args,plot=None, visualize=None): ## for testing the backdoored clean model
+def epoch_clean_test(bd_model,clean_model, loader,args,plot=None): ## for testing the backdoored clean model
     preds = []
     bd_preds = []
     trues = []
     bd_label = args.target_label
-    if visualize is not None:
-        clean_latents = []
-        bd_latents = []
     for i, (batch_x, label, padding_mask) in enumerate(loader):
         clean_model.zero_grad()
         batch_x = batch_x.float().to(args.device)
@@ -747,18 +744,11 @@ def epoch_clean_test(bd_model,clean_model, loader,args,plot=None, visualize=None
         target_labels = torch.ones_like(label) * bd_label
         trigger_x,trigger_clipped = bd_model(batch_x, padding_mask, None, None,target_labels)
         bd_batch = batch_x + trigger_clipped
-        if visualize is not None:
-            clean_outs, clean_latent = clean_model(batch_x, padding_mask,None,None, visualize=visualize)
-            bd_outs, bd_latent = clean_model(bd_batch, padding_mask,None,None, visualize=visualize)
-        else:
-            clean_outs = clean_model(batch_x, padding_mask,None,None)
-            bd_outs = clean_model(bd_batch, padding_mask,None,None)
+        clean_outs = clean_model(batch_x, padding_mask,None,None)
+        bd_outs = clean_model(bd_batch, padding_mask,None,None)
         preds.append(clean_outs.detach())
         bd_preds.append(bd_outs)
         trues.append(label)
-        if visualize is not None:
-            clean_latents.append(clean_latent)
-            bd_latents.append(bd_latent)
     preds = torch.cat(preds, 0)
     bd_preds = torch.cat(bd_preds, 0)
     trues = torch.cat(trues, 0)
@@ -773,10 +763,6 @@ def epoch_clean_test(bd_model,clean_model, loader,args,plot=None, visualize=None
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     if plot is not None:
         plot(args,batch_x[0].permute(1,0),bd_batch[0].permute(1,0)) ## plot the first sample
-    if visualize is not None:
-        clean_latents = torch.cat(clean_latents, dim=0)
-        bd_latents = torch.cat(bd_latents, dim=0)
-        visualize(clean_latents, bd_latents, args)
     return clean_accuracy,bd_accuracy
 
 def clean_train(model,loader,args,optimizer): ### for warm up the surrogate classifier
@@ -939,9 +925,9 @@ def epoch_visualize(clean_model, bd_loader,poisoned_indices, silent_indices, arg
         clean_model.zero_grad()
         batch_x = batch_x.float().to(args.device)
         padding_mask = padding_mask.float().to(args.device)
-        _, latent = clean_model(batch_x, padding_mask,None,None, visualize=visualize2)
+        _, latent = clean_model(batch_x, padding_mask,None,None, visualize=visualize)
         latents.append(latent)
     latents = torch.cat(latents, dim=0)
-    visualize2(latents, poisoned_indices, silent_indices, args)
+    visualize(latents, poisoned_indices, silent_indices, args)
 
 
