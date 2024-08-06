@@ -29,7 +29,7 @@ def args_parser():
     parser.add_argument('--target_label', type=int, default=0, help='targeted label')
     parser.add_argument('--load_bd_model', type=str, default=None, help='path to the bd model weights')
     parser.add_argument('--label_smooth', type=float, default=0., help='label smoothing')
-    parser.add_argument('--silent_poisoning', type=bool, default=False, help='')
+    parser.add_argument('--silent_poisoning', action="store_true", default=False, help='')
 
     # Training or testing
     parser.add_argument('--is_training', type=int, default=1, help='Running mode')
@@ -130,4 +130,5 @@ def args_parser():
     ###
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
+    argsç
     return args
