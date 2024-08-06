@@ -130,5 +130,4 @@ def args_parser():
     ###
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
-    argsç
     return args

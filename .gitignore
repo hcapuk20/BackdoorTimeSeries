@@ -1,6 +1,7 @@
 dataset/*
 weights/*
 Results/*
+*_old/*
 trigger_figs/*
 visuals/*
 tmp_utils
