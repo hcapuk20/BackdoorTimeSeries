@@ -5,6 +5,7 @@ from utils.model_ops import *
 from defences.fp import Pruning
 from defences.nc import main as nc_main
 from defences.strip import cleanser
+from defences.spectre import spectre_filtering
 from utils.visualize import visualize
 from sklearn.metrics import confusion_matrix
 
@@ -899,7 +900,7 @@ def defence_test_nc(bd_model,clean_model,train_loader,test_loader,args): ## for 
 
 def defence_test_strip(clean_model, poisoned_loader, clean_loader, poisoned_indices, silent_indices, args):
 
-    print("======= strip defence test =======")
+    print("======== STRIP defence test ========")
     suspicious_indices = cleanser(poisoned_loader, clean_loader, clean_model, args)
 
     backdoored_indices = poisoned_indices.tolist() + silent_indices.tolist() if len(silent_indices) > 0 else poisoned_indices.tolist()
@@ -915,6 +916,15 @@ def defence_test_strip(clean_model, poisoned_loader, clean_loader, poisoned_indi
         true_ind[i] = 1
 
     TN, FP, FN, TP = confusion_matrix(true_ind, susp_ind).ravel()
+
+    return FN, TP, FP
+
+def defence_test_spectre(clean_model, poisoned_loader, poisoned_indices, silent_indices, args):
+
+    print("======= SPECTRE defence test =======")
+    backdoored_indices = poisoned_indices.tolist() + silent_indices.tolist() if len(silent_indices) > 0 else poisoned_indices.tolist()
+
+    TN, FP, FN, TP, TPR, FPR = spectre_filtering(clean_model, poisoned_loader, backdoored_indices, args)
 
     return FN, TP, FP
 

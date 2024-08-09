@@ -270,12 +270,19 @@ def run(args,threaded=True):
     clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
     # STRIP
     poisoned_data, bd_test_loader, poisoned_indices, silent_indices = bd_data_provider2(args, 'test', bd_generator)
-    hidden_count, caught_count, fp_count = defence_test_strip(clean_model, bd_test_loader, test_loader, poisoned_indices, silent_indices, args)
+    split_hidden_count, split_caught_count, split_fp_count = defence_test_strip(clean_model, bd_test_loader, \
+                                                                                test_loader, poisoned_indices, silent_indices, args)
+    # SPECTRE 
+    spectre_hidden_count, spectre_caught_count, spectre_fp_count = defence_test_spectre(clean_model, bd_test_loader, \
+                                                                                        poisoned_indices, silent_indices, args)
     # visualize latents (new)
     epoch_visualize(clean_model, bd_test_loader, poisoned_indices, silent_indices, args)
     print('defences | CA : {}, ASR : {}'.format( clean_test_acc_def, bd_accuracy_test_def))
-    print('STRIP Results: hidden:{}, caugth:{}, FP:{}'.format(hidden_count, caught_count, fp_count))
-    return clean_test, bd_test,clean_test_acc_def, bd_accuracy_test_def,bd_generator, hidden_count, caught_count, fp_count
+    print('STRIP Results: hidden:{}, caugth:{}, FP:{}'.format(split_hidden_count, split_caught_count, split_fp_count))
+    print('SPECTRE Results: hidden:{}, caugth:{}, FP:{}'.format(spectre_hidden_count, spectre_caught_count, spectre_fp_count))
+    return clean_test, bd_test,clean_test_acc_def, bd_accuracy_test_def,bd_generator, \
+            split_hidden_count, split_caught_count, split_fp_count,\
+            spectre_hidden_count, spectre_caught_count, spectre_fp_count
 
 
 if __name__ == '__main__':
@@ -292,7 +299,8 @@ if __name__ == '__main__':
     CA_epoch,ASR_epoch = None, None
     for i in range(num_trial):
         clean_test_acc, bd_accuracy_test,clean_test_acc_def, bd_accuracy_test_def, bd_generator, \
-                                            hidden_count, caught_count, fp_count = run(args,threaded=False)
+                                            split_hidden_count, split_caught_count, split_fp_count, \
+                                            spectre_hidden_count, spectre_caught_count, spectre_fp_count = run(args,threaded=False)
         if i == 0:
             CA_epoch = np.asarray(clean_test_acc)
             ASR_epoch = np.asarray(bd_accuracy_test)
@@ -311,4 +319,5 @@ if __name__ == '__main__':
     ASR_epoch = ASR_epoch/num_trial
 
     save_results(args, np.mean(CA), np.mean(ASR),np.std(CA),np.std(ASR),np.mean(CA_def),np.mean(ASR_def),
-                    np.std(CA_def), np.std(ASR_def), hidden_count, caught_count, fp_count ,best_bd_model,CA_epoch,ASR_epoch)
+                    np.std(CA_def), np.std(ASR_def), split_hidden_count, split_caught_count, split_fp_count,
+                                                     spectre_hidden_count, spectre_caught_count, spectre_fp_count,best_bd_model,CA_epoch,ASR_epoch)

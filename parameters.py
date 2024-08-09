@@ -47,7 +47,6 @@ def args_parser():
     parser.add_argument('--cos_reg', type=float, default=0, help='cosine regularization for the generated trigger')
     parser.add_argument('--div_reg', type=float, default=0, help='diversity loss regularization for the generated trigger')
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
-    parser.add_argument('--use_mp', action='store_true', help='use mixed precision or not')
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
     parser.add_argument('--wd', type=float, default=0.01, help="weight decay")
     parser.add_argument('--device', type=str, default='cuda:0', help="GPU")
@@ -112,7 +111,7 @@ def args_parser():
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='optimizer learning rate')
     parser.add_argument('--lradj', type=str, default='type1', help='adjust learning rate')
-    parser.add_argument('--use_amp', action='store_true', help='use automatic mixed precision training', default=False)
+    parser.add_argument('--use_mp', action='store_true', help='use automatic mixed precision training', default=False)
 
     # GPU
     parser.add_argument('--gpu', type=int, default=0, help='gpu')
