@@ -391,11 +391,13 @@ def epoch_with_diversity(bd_model,surr_model, loader1, args, loader2=None, opt=N
                     trigger_distances = torch.sqrt(trigger_distances)
 
                     loss_div = input_distances / (trigger_distances + 1e-6) # second value is the epsilon, arbitrary for now
-                    loss_div = torch.mean(loss_div) * args.div_reg # give weight from args
+                    loss_div = torch.mean(loss_div) * args.div_reg 
 
             with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
+                mask = (label != bd_label).float().to(args.device) if args.attack_only_nontarget else torch.ones_like(label).float().to(args.device)
+                mask = mask.unsqueeze(-1).expand(-1,trigger_clip.shape[-2],trigger_clip.shape[-1])
                 clean_pred = surr_model(batch_x, padding_mask,None,None)
-                bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
+                bd_pred = surr_model(batch_x + trigger_clip * mask, padding_mask,None,None)
                 loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
                 loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
                 loss_reg = reg_loss(batch_x,trigger,trigger_clip,args) ### We can use regularizer loss as well
@@ -490,8 +492,10 @@ def epoch_marksman_with_diversity(bd_model, bd_model_prev, surr_model, loader1, 
         ########### First train surrogate classifier with frozen trigger #####################
         with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
             trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None,bd_labels) # generate trigger with frozen model
+            mask = (label != bd_label).float().to(args.device) if args.attack_only_nontarget else torch.ones_like(label).float().to(args.device)
+            mask = mask.unsqueeze(-1).expand(-1,trigger_clip.shape[-2],trigger_clip.shape[-1])
             clean_pred = surr_model(batch_x, padding_mask,None,None)
-            bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
+            bd_pred = surr_model(batch_x + trigger_clip * mask, padding_mask,None,None)
             loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
             loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
             loss_class = loss_clean + loss_bd
@@ -525,7 +529,7 @@ def epoch_marksman_with_diversity(bd_model, bd_model_prev, surr_model, loader1, 
                 loss_div = torch.mean(loss_div) * args.div_reg # give weight from args
 
         with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
-            bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None) # surrogate classifier in eval mode
+            bd_pred = surr_model(batch_x + trigger_clip * mask, padding_mask,None,None) # surrogate classifier in eval mode
             loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
             loss_reg = reg_loss(batch_x, trigger, trigger_clip, args)  ### We can use regularizer loss as well          
             if loss_reg is None:
@@ -613,7 +617,9 @@ def epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model, loade
         ########### First train surrogate classifier with frozen trigger #####################
         with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
             trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None,bd_labels) # generate trigger with frozen model
-            batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip, alpha=2, beta=2) # generate mix_batch
+            mask = (label != bd_label).float().to(args.device) if args.attack_only_nontarget else torch.ones_like(label).float().to(args.device)
+            mask = mask.unsqueeze(-1).expand(-1,trigger_clip.shape[-2],trigger_clip.shape[-1])
+            batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip * mask, alpha=2, beta=2) # generate mix_batch
             clean_pred = surr_model(batch_x, padding_mask,None,None)
             bd_pred = surr_model(batch_mix, padding_mask,None,None)
             loss_bd = args.criterion_mix(bd_pred, bd_labels.long().squeeze(-1))  # output size of batch
@@ -657,7 +663,7 @@ def epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model, loade
                 loss_div = torch.mean(loss_div) * args.div_reg # give weight from args
         #batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip, alpha=2, beta=2) # generate mix_batch
         with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
-            bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None) # surrogate classifier in eval mode
+            bd_pred = surr_model(batch_x + trigger_clip * mask, padding_mask,None,None) # surrogate classifier in eval mode
             ######## here we combine two loss one for each label
             loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1)) # output size of batch
             #loss_clean = args.criterion_mix(bd_pred, label.long().squeeze(-1)) # output size of batch
