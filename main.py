@@ -147,11 +147,12 @@ def run(args,threaded=True):
     args.criterion = nn.CrossEntropyLoss()
     ######### The loss term for utilizing mixup 
     args.criterion_mix = nn.CrossEntropyLoss(reduce=False) # in order to have batch-wise results rather than sum or average
+    args.criterion_mix_ls = nn.CrossEntropyLoss(reduce=False,label_smoothing=args.label_smooth) # in order to have batch-wise results rather than sum or average
     # ===== Add optimizer to the args =====
-    args.criterion_bd = nn.CrossEntropyLoss(label_smoothing=args.label_smooth)
+    #args.criterion_bd = nn.CrossEntropyLoss(label_smoothing=args.label_smooth) #unsuded
     opt_surr = None
     ## GRAD SCALER FOR MIXED PRECISION
-    scaler = torch.amp.GradScaler("cuda") if args.use_mp else None
+    scaler = torch.cuda.amp.GradScaler(enabled=args.use_mp) if args.use_mp else None
 
     if args.load_bd_model is None:
         ### Experimental

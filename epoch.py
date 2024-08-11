@@ -62,13 +62,14 @@ def mixup_forcast(x_clean, x_backdoor, y_clean, y_backdoor, alpha=2, beta=2): ##
     time_y = y_clean.size(2)
     time_x = x_clean.size(2)
     ################ We utilize a beta function to sample lamda values ##########
-    lam = torch.tensor( np.random.beta(2, 2, bs), requires_grad=False)
+    lam = torch.tensor( np.random.beta(a=alpha,  b=beta), requires_grad=False)
     lam = (lam.unsqueeze(dim=-1)).unsqueeze(dim=-1)
     lam_x = lam.repeat(1, channel, time_x)
     lam_y = lam.repeat(1, channel, time_y)
     x_mixed = lam_x * x_backdoor + (1 - lam_x) * x_clean
     y_mixed = lam_y * y_backdoor + (1 - lam_y) * y_clean
     return x_mixed, y_mixed
+
 def mixup_class(x_clean, x_backdoor, alpha=2, beta=2): ### classification task
     ### Following the framework in 
     ### https://github.com/facebookresearch/mixup-cifar10/blob/main/train.py
@@ -78,7 +79,7 @@ def mixup_class(x_clean, x_backdoor, alpha=2, beta=2): ### classification task
     channel= x_clean.size(1)
     time_x = x_clean.size(2)
     ################ We utilize a beta function to sample lamda values ##########
-    lam = torch.tensor( np.random.beta(2, 2, bs), requires_grad=False).to(x_clean.device).float()
+    lam = torch.tensor( np.random.beta(alpha,  beta, bs), requires_grad=False).to(x_clean.device).float()
     lam_x = (lam.unsqueeze(dim=-1)).unsqueeze(dim=-1)
     lam_x = lam_x.repeat(1, channel, time_x)
     x_mixed = lam_x * x_backdoor + (1 - lam_x) * x_clean
@@ -236,7 +237,7 @@ def epoch_marksman_lam(bd_model, bd_model_prev, surr_model, loader, args, opt_tr
         ###########  Train trigger classifier with updated surrogate classifier (eval mode) #####################
         surr_model.eval() ### surrogate model in eval mode
         trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None,bd_labels) # trigger with active model
-        batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip, alpha=2, beta=2) # generate mix_batch
+        batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip, args.lambda_alpha, args.lambda_alpha) # generate mix_batch
         bd_pred = surr_model(batch_mix, padding_mask,None,None) # surrogate classifier in eval mode
         ######## here we combine two loss one for each label 
         loss_bd = args.criterion_mix(bd_pred, bd_labels.long().squeeze(-1)) # output size of batch
@@ -391,7 +392,7 @@ def epoch_with_diversity(bd_model,surr_model, loader1, args, loader2=None, opt=N
                     trigger_distances = torch.sqrt(trigger_distances)
 
                     loss_div = input_distances / (trigger_distances + 1e-6) # second value is the epsilon, arbitrary for now
-                    loss_div = torch.mean(loss_div) * args.div_reg 
+                    loss_div = torch.mean(loss_div) * args.div_reg
 
             with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
                 mask = (label != bd_label).float().to(args.device) if args.attack_only_nontarget else torch.ones_like(label).float().to(args.device)
@@ -619,7 +620,7 @@ def epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model, loade
             trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None,bd_labels) # generate trigger with frozen model
             mask = (label != bd_label).float().to(args.device) if args.attack_only_nontarget else torch.ones_like(label).float().to(args.device)
             mask = mask.unsqueeze(-1).expand(-1,trigger_clip.shape[-2],trigger_clip.shape[-1])
-            batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip * mask, alpha=2, beta=2) # generate mix_batch
+            batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip * mask, args.lambda_alpha, args.lambda_beta) # generate mix_batch
             clean_pred = surr_model(batch_x, padding_mask,None,None)
             bd_pred = surr_model(batch_mix, padding_mask,None,None)
             loss_bd = args.criterion_mix(bd_pred, bd_labels.long().squeeze(-1))  # output size of batch
@@ -665,7 +666,7 @@ def epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model, loade
         with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
             bd_pred = surr_model(batch_x + trigger_clip * mask, padding_mask,None,None) # surrogate classifier in eval mode
             ######## here we combine two loss one for each label
-            loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1)) # output size of batch
+            loss_bd = nn.CrossEntropyLoss(label_smoothing=args.label_smooth)(bd_pred, bd_labels.long().squeeze(-1)) # output size of batch
             #loss_clean = args.criterion_mix(bd_pred, label.long().squeeze(-1)) # output size of batch
             loss_reg = reg_loss(batch_x,trigger,trigger_clip,args) ### We can use regularizer loss as well
             #loss_trig = torch.mean(loss_bd * scale_weights + loss_clean * (1-scale_weights)) ## sum loss can be converted to average
