@@ -52,7 +52,6 @@ def args_parser():
                         help='whether to only inject items that are not already labeled as target label or not, \
                         using this argument means only injecting items that are not labeled with attack target label',
                         default=False)
-    parser.add_argument('--use_mp',type=bool,default=True, help='use mixed precision or not')
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
     parser.add_argument('--wd', type=float, default=0.01, help="weight decay")
     parser.add_argument('--device', type=str, default='cuda:0', help="GPU")
