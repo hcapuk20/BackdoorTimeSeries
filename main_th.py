@@ -25,7 +25,7 @@ def main_thread(args):
     CA_epoch, ASR_epoch = None, None
     for i in range(num_trial):
         clean_test_acc, bd_accuracy_test, clean_test_acc_def, bd_accuracy_test_def, bd_generator, \
-            hidden_count, caught_count, fp_count = run(args, threaded=False)
+            hidden_count_split, caught_count_split, fp_count_split, hidden_count_spectre, caught_count_spectre, fp_count_spectre = run(args, threaded=False)
         if i == 0:
             CA_epoch = np.asarray(clean_test_acc)
             ASR_epoch = np.asarray(bd_accuracy_test)
@@ -43,7 +43,8 @@ def main_thread(args):
     CA_epoch = CA_epoch / num_trial
     ASR_epoch = ASR_epoch / num_trial
     save_results(args, np.mean(CA), np.mean(ASR), np.std(CA), np.std(ASR), np.mean(CA_def), np.mean(ASR_def),
-                 np.std(CA_def), np.std(ASR_def), hidden_count, caught_count, fp_count, best_bd_model, CA_epoch,
+                 np.std(CA_def), np.std(ASR_def), hidden_count_split, caught_count_split, fp_count_split, \
+                    hidden_count_spectre, caught_count_spectre, fp_count_spectre, best_bd_model, CA_epoch,
                  ASR_epoch)
 
 
