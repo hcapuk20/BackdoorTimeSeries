@@ -1,3 +1,5 @@
+import os.path
+
 import torch
 import numpy as np
 import torch.nn as nn
@@ -53,6 +55,8 @@ def fft_vals(x_clean,x_back,args,i): # input shape T x C #outputshape C
     axs[1].legend()
     axs[2].legend()
     plt.tight_layout()
+    if not os.path.exists('fft_figs'):
+        os.makedirs('fft_figs', exist_ok=True)
     plt.savefig('fft_figs/fft-{}-{}.png'.format(args.sim_id,i))
 
 
