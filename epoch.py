@@ -8,6 +8,7 @@ from defences.strip import cleanser
 from defences.spectre import spectre_filtering
 from utils.visualize import visualize
 from sklearn.metrics import confusion_matrix
+from matplotlib import pyplot as plt
 
 ######### For avoiding code duplication with auto_mp checks
 from contextlib import contextmanager
@@ -28,22 +29,51 @@ def autocast_if_needed(device_type, enabled):
 ##################### Regularizers ########################
 
 ### This loss is designed to minimize the alignment on the frequency domain
-def fftreg(x_clean,x_back): # input shape B x C x T #outputshape B x C 
+
+def fft_vals(x_clean,x_back,args,i): # input shape T x C #outputshape C
+    x_c, x_b = x_clean.float().permute(1,0).float(), x_back.permute(1,0).float()
+    xf_c = abs(torch.fft.rfft(x_c, dim=1))  ## clean data on the freq domain
+    xf_b = abs(torch.fft.rfft(x_b, dim=1))  ## backdoored data on the freq domain
+    xf_c2 = xf_c[:, 1:-1]  ## ignore the freq 0
+    xf_b2 = xf_b[:, 1:-1]  ## ignore the freq 0
+    fig, axs = plt.subplots(1, 3, figsize=(18, 6))
+    axs[0].plot(xf_c2[0].cpu().numpy() ,label='clean', color='blue')
+    axs[0].plot(xf_b2[0].cpu().numpy(),label='bd', color='red')
+    axs[1].plot(xf_c2[1].cpu().numpy(),label='clean', color='blue')
+    axs[1].plot(xf_b2[1].cpu().numpy(),label='bd', color='red')
+    axs[2].plot(xf_c2[2].cpu().numpy(),label='clean', color='blue')
+    axs[2].plot(xf_b2[2].cpu().numpy(),label='bd', color='red')
+    axs[0].set_ylim([0, 10])
+    axs[1].set_ylim([0, 10])
+    axs[2].set_ylim([0, 10])
+    axs[0].grid(True)
+    axs[1].grid(True)
+    axs[2].grid(True)
+    axs[0].legend()
+    axs[1].legend()
+    axs[2].legend()
+    plt.tight_layout()
+    plt.savefig('fft_figs/fft-{}-{}.png'.format(args.sim_id,i))
+
+
+
+def fftreg(x_clean,x_back): # input shape B x T x C #outputshape B x C
+    x_c,x_b = x_clean.float().permute(0,2,1).float(),x_back.permute(0,2,1).float()
     cos = nn.CosineSimilarity(dim=2, eps=1e-6)
-    xf_c = abs(torch.fft.rfft(x_clean, dim=2)) ## clean data on the freq domain
-    xf_b = abs(torch.fft.rfft(x_back, dim=2))  ## backdoored data on the freq domain
+    xf_c = abs(torch.fft.rfft(x_c, dim=2)) ## clean data on the freq domain
+    xf_b = abs(torch.fft.rfft(x_b, dim=2))  ## backdoored data on the freq domain
     xf_c2 = xf_c[:,:,1:-1] ## ignore the freq 0
     xf_b2 = xf_b[:,:,1:-1] ## ignore the freq 0
     return cos(xf_c2,xf_b2).mean() ##### This term can be summed or averaged #########
 
-def l2_reg(clipped_trigger, trigger):
-    return torch.norm(trigger - clipped_trigger)
+def l2_reg(clipped_trigger, trigger): # maximize clipped trigger.
+    return -torch.norm(clipped_trigger)
 
 def reg_loss(x_clean,trigger,trigger_clip,args):
     l2_loss = l2_reg(trigger_clip,trigger)
     cos_loss = fftreg(x_clean,x_clean+trigger_clip)
     reg_total = l2_loss * args.L2_reg + cos_loss * args.cos_reg
-    if reg_total > 0:
+    if reg_total != 0:
         return reg_total
     else:
         return None
@@ -752,6 +782,7 @@ def epoch_clean_test(bd_model,clean_model, loader,args,plot=None): ## for testin
         target_labels = torch.ones_like(label) * bd_label
         trigger_x,trigger_clipped = bd_model(batch_x, padding_mask, None, None,target_labels)
         bd_batch = batch_x + trigger_clipped
+        #fft_vals(batch_x[0],bd_batch[0],args,i)
         clean_outs = clean_model(batch_x, padding_mask,None,None)
         bd_outs = clean_model(bd_batch, padding_mask,None,None)
         preds.append(clean_outs.detach())
@@ -771,6 +802,7 @@ def epoch_clean_test(bd_model,clean_model, loader,args,plot=None): ## for testin
     bd_accuracy = cal_accuracy(bd_predictions, bd_labels.flatten().cpu().numpy())
     if plot is not None:
         plot(args,batch_x[0].permute(1,0),bd_batch[0].permute(1,0)) ## plot the first sample
+        fft_vals(batch_x[0],bd_batch[0],args,i=-1)
     return clean_accuracy,bd_accuracy
 
 def clean_train(model,loader,args,optimizer): ### for warm up the surrogate classifier
