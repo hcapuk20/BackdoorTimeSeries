@@ -171,7 +171,7 @@ def run(args,threaded=True):
         ######################################## ************************ bu kısım sankı hatalı
         # opt_bd = torch.optim.AdamW(filter(lambda p: p.requires_grad, bd_model.parameters()), lr=args.lr)
         if args.train_mode != 'basic':
-            opt_bd = torch.optim.AdamW(bd_model.trigger.parameters(), lr=args.lr)
+            opt_bd = torch.optim.AdamW(bd_model.trigger.parameters(), lr=args.lr_bd)
             opt_surr = torch.optim.AdamW(surr_model.parameters(), lr=args.lr)
             schedular_bd = torch.optim.lr_scheduler.CosineAnnealingLR(opt_bd, T_max=args.train_epochs, eta_min=1e-6)
             #schedular_surr = torch.optim.lr_scheduler.MultiStepLR(opt_surr, milestones=[args.train_epochs // 2], gamma=0.1)
@@ -289,7 +289,7 @@ def run(args,threaded=True):
 if __name__ == '__main__':
     # ======================================================= parse args
     args = args_parser()
-    num_trial = 3
+    num_trial = 2
     CA = []
     ASR = []
     CA_def = []

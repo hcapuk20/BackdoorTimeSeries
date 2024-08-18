@@ -58,8 +58,13 @@ def fft_vals(x_clean,x_back,args,i): # input shape T x C #outputshape C
     if not os.path.exists('fft_figs'):
         os.makedirs('fft_figs', exist_ok=True)
     plt.savefig('fft_figs/fft-{}-{}.png'.format(args.sim_id,i))
+    plt.clf()
 
-
+def freqreg(x_clean,x_back):
+    x_c, x_b = x_clean.float().permute(0, 2, 1).float(), x_back.permute(0, 2, 1).float()
+    xf_b = abs(torch.fft.rfft(x_b, dim=2))  ## backdoored data on the freq domain
+    xf_b2 = xf_b[:, :, 1:-1]  ## ignore the freq 0
+    return torch.norm(xf_b2, p=1, dim=2).mean()  # This term can be summed or averaged
 
 def fftreg(x_clean,x_back): # input shape B x T x C #outputshape B x C
     x_c,x_b = x_clean.float().permute(0,2,1).float(),x_back.permute(0,2,1).float()
@@ -68,6 +73,7 @@ def fftreg(x_clean,x_back): # input shape B x T x C #outputshape B x C
     xf_b = abs(torch.fft.rfft(x_b, dim=2))  ## backdoored data on the freq domain
     xf_c2 = xf_c[:,:,1:-1] ## ignore the freq 0
     xf_b2 = xf_b[:,:,1:-1] ## ignore the freq 0
+    #print(cos(xf_c2,xf_b2).mean())
     return cos(xf_c2,xf_b2).mean() ##### This term can be summed or averaged #########
 
 def l2_reg(clipped_trigger, trigger): # maximize clipped trigger.
@@ -76,7 +82,8 @@ def l2_reg(clipped_trigger, trigger): # maximize clipped trigger.
 def reg_loss(x_clean,trigger,trigger_clip,args):
     l2_loss = l2_reg(trigger_clip,trigger)
     cos_loss = fftreg(x_clean,x_clean+trigger_clip)
-    reg_total = l2_loss * args.L2_reg + cos_loss * args.cos_reg
+    freq_loss = freqreg(x_clean,x_clean+trigger_clip)
+    reg_total = l2_loss * args.L2_reg + cos_loss * args.cos_reg + freq_loss * args.freq_reg
     if reg_total != 0:
         return reg_total
     else:

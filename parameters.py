@@ -47,18 +47,21 @@ def args_parser():
     parser.add_argument('--L2_reg', type=float, default=0, help='L2 regularization for the generated trigger')
     parser.add_argument('--cos_reg', type=float, default=0, help='cosine regularization for the generated trigger')
     parser.add_argument('--div_reg', type=float, default=0, help='diversity loss regularization for the generated trigger')
+    parser.add_argument('--freq_reg', type=float, default=0,
+                        help='L1 loss for real fft (RFFT) values for the triggers')
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")
     parser.add_argument('--attack_only_nontarget', action='store_true',
                         help='whether to only inject items that are not already labeled as target label or not, \
                         using this argument means only injecting items that are not labeled with attack target label',
                         default=False)
     parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
+    parser.add_argument('--lr_bd', type=float, default=1e-3, help="learning rate")
     parser.add_argument('--wd', type=float, default=0.01, help="weight decay")
     parser.add_argument('--device', type=str, default='cuda:0', help="GPU")
 
     # data loader
     parser.add_argument('--data', type=str, required=False, default='UEA', help='dataset type')
-    parser.add_argument('--root_path', type=str, default='./dataset/JapaneseVowels/', help='root path of the data file')
+    parser.add_argument('--root_path', type=str, default='./dataset/UwaveGestureLibrary/', help='root path of the data file')
     parser.add_argument('--data_path', type=str, default='ETTm1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
@@ -82,6 +85,7 @@ def args_parser():
 
     # model define
     parser.add_argument('--ptst_patch_len', type=int, default=16, help='patch len for patch tst')
+    parser.add_argument('--ptst_stride', type=int, default=8, help='stride for patchtst')
     parser.add_argument('--top_k', type=int, default=3, help='for TimesBlock')
     parser.add_argument('--num_kernels', type=int, default=6, help='for Inception')
     parser.add_argument('--enc_in', type=int, default=7, help='encoder input size')
@@ -111,7 +115,7 @@ def args_parser():
                         help='1: channel dependence 0: channel independence for FreTS model')
 
     # optimization
-    parser.add_argument('--num_workers', type=int, default=8, help='data loader num workers')
+    parser.add_argument('--num_workers', type=int, default=0, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
     parser.add_argument('--patience', type=int, default=3, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.001, help='optimizer learning rate')

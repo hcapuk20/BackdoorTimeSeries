@@ -37,6 +37,8 @@ class Model(nn.Module):
         self.clip_ratio = configs.clip_ratio
         padding = stride
         _patch_len = configs.ptst_patch_len if hasattr(configs, 'ptst_patch_len') else patch_len
+        stride = configs.ptst_stride if hasattr(configs, 'ptst_stride') else stride
+
         # patching and embedding
         self.patch_embedding = PatchEmbedding(
             configs.d_model_bd, _patch_len, stride, padding, configs.dropout)
