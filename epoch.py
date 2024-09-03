@@ -398,6 +398,8 @@ def epoch_with_diversity(bd_model,surr_model, loader1, args, loader2=None, opt=N
         bd_model.eval()
     for i, (batch_x, label, padding_mask), (batch_x2, label2, padding_mask2) in zip(range(len(loader1)), loader1, loader2):
             loss_div = 0.0 # for consistency with optional diversity loss
+            loss_clean = torch.tensor([0.0])
+            loss_bd = torch.tensor([0.0]) # for consistency with optional cross losses and logging.
             bd_model.zero_grad()
             surr_model.zero_grad()
             #### Fetch clean data
@@ -440,12 +442,27 @@ def epoch_with_diversity(bd_model,surr_model, loader1, args, loader2=None, opt=N
                 mask = mask.unsqueeze(-1).expand(-1,trigger_clip.shape[-2],trigger_clip.shape[-1])
                 clean_pred = surr_model(batch_x, padding_mask,None,None)
                 bd_pred = surr_model(batch_x + trigger_clip * mask, padding_mask,None,None)
-                loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
-                loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
+                if batch_x2 is not None and args.div_reg:
+                    # cross loss from input aware paper (coupled with diversity loss from the same work)
+                    bs = batch_x.shape[0]
+                    num_bd = int(0.5 * bs) # args.p_attack, values taken from the best result from input-aware paper
+                    num_cross = int(0.1 * bs) # args.p_cross
+                    bd_inputs = (batch_x + trigger_clip * mask)[:num_bd]
+                    cross_inputs = (batch_x + trigger_clip2 * mask)[num_bd : num_bd + num_cross]
+                    total_inputs = torch.cat((bd_inputs, cross_inputs, batch_x[num_bd + num_cross:])).to(args.device)
+                    total_targets = torch.cat((bd_labels[:num_bd], label[num_bd:])).to(args.device)
+                    total_pred = surr_model(total_inputs, padding_mask, None, None)
+                    total_cross_loss = args.criterion(total_pred, total_targets.long().squeeze(-1))       
+                else:
+                    loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
+                    loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
                 loss_reg = reg_loss(batch_x,trigger,trigger_clip,args) ### We can use regularizer loss as well
             if loss_reg is None:
-                loss_reg = torch.zeros_like(loss_bd)
-            loss = loss_clean + loss_bd + loss_reg + loss_div
+                loss_reg = torch.zeros_like(total_cross_loss) if batch_x2 is not None and args.div_reg else torch.zeros_like(loss_bd) 
+            if batch_x2 is not None and args.div_reg:
+                loss = total_cross_loss + loss_reg + loss_div
+            else:
+                loss = loss_clean + loss_bd + loss_reg + loss_div
             loss_dict['CE_c'].append(loss_clean.item())
             loss_dict['CE_bd'].append(loss_bd.item())
             loss_dict['reg'].append(loss_reg.item())
