@@ -46,7 +46,7 @@ def args_parser():
     parser.add_argument('--batch_size', type=int, default=40, help='batch size of train input data')
     parser.add_argument('--L2_reg', type=float, default=0, help='L2 regularization for the generated trigger')
     parser.add_argument('--cos_reg', type=float, default=0, help='cosine regularization for the generated trigger')
-    parser.add_argument('--div_reg', type=float, default=0, help='diversity loss regularization for the generated trigger')
+    parser.add_argument('--div_reg', type=float, default=1.0, help='diversity loss regularization for the generated trigger')
     parser.add_argument('--freq_reg', type=float, default=0,
                         help='L1 loss for real fft (RFFT) values for the triggers')
     parser.add_argument('--opt_method', type=str, default='adamW', help="Optimization method adamW,lamb,adam")

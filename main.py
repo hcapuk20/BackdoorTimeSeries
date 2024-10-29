@@ -37,7 +37,7 @@ model_dict = {
     'TimesNet': TimesNet,
     'timesnet': TimesNet,
     'FEDformer': FEDformer,
-    'Informer': Informer,
+    'informer': Informer,
     'itransformer': iTransformer,
     'patchtst': PatchTST,
     'transformer': Transformer,
@@ -273,9 +273,11 @@ def run(args,threaded=True):
     poisoned_data, bd_test_loader, poisoned_indices, silent_indices = bd_data_provider2(args, 'test', bd_generator)
     split_hidden_count, split_caught_count, split_fp_count = defence_test_strip(clean_model, bd_test_loader, \
                                                                                 test_loader, poisoned_indices, silent_indices, args)
+    # TODO: disabled spectre as we dont really need it.
     # SPECTRE 
-    spectre_hidden_count, spectre_caught_count, spectre_fp_count = defence_test_spectre(clean_model, bd_test_loader, \
-                                                                                        poisoned_indices, silent_indices, args)
+    # spectre_hidden_count, spectre_caught_count, spectre_fp_count = defence_test_spectre(clean_model, bd_test_loader, \
+    #                                                                                     poisoned_indices, silent_indices, args)
+    spectre_hidden_count, spectre_caught_count, spectre_fp_count = 0, 0, 0
     # visualize latents (new)
     epoch_visualize(clean_model, bd_test_loader, poisoned_indices, silent_indices, args)
     print('defences | CA : {}, ASR : {}'.format( clean_test_acc_def, bd_accuracy_test_def))

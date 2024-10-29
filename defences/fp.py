@@ -23,7 +23,7 @@ from .base import Base
 
 # Define model pruning
 class MaskedLayer(nn.Module):
-    def __init__(self, base, mask, model_type=None):
+    def __init__(self, base, mask, model_type='resnet2'):
         super(MaskedLayer, self).__init__()
         self.base = base
         self.mask = mask
@@ -31,7 +31,7 @@ class MaskedLayer(nn.Module):
 
     def forward(self, input, **kwargs): # for param consistency
         #print(self.base(input).shape,self.mask.shape,self.mask.sum() / self.mask.numel())
-        if self.model_type == "Informer":
+        if self.model_type.lower() == "informer":
             return self.base(input)[0] * self.mask, None
         return self.base(input) * self.mask
 
@@ -109,7 +109,7 @@ class Pruning(Base):
         #layer_to_prune = 'model'
         if self.args.model.lower() == "timesnet":
             layer_to_prune = model.model[-1]
-        elif self.args.model == "Informer":
+        elif self.args.model.lower() == "informer":
             layer_to_prune = model.encoder.attn_layers[-1]
         else:
             raise NotImplementedError("Unknown model for FP defence.")
@@ -136,7 +136,7 @@ class Pruning(Base):
 
         if self.args.model.lower() == "timesnet":
             container = torch.cat(container, dim=0)
-        elif self.args.model == "Informer":
+        elif self.args.model.lower() == "informer":
             container = torch.cat([container[0][0]], dim=0)
 
         activation = torch.mean(container, dim=[0,1])
@@ -153,9 +153,9 @@ class Pruning(Base):
 
         #setattr(layer_to_prune, 'model', MaskedLayer(layer_to_prune, mask))
         if self.args.model.lower() == "timesnet":
-            model.model[-1] = MaskedLayer(layer_to_prune, mask)
-        elif self.args.model == "Informer":
-            model.encoder.attn_layers[-1] = MaskedLayer(layer_to_prune, mask, model_type="Informer")
+            model.model[-1] = MaskedLayer(layer_to_prune, mask, model_type="timesnet")
+        elif self.args.model.lower() == "informer":
+            model.encoder.attn_layers[-1] = MaskedLayer(layer_to_prune, mask, model_type="informer")
 
         self.model = model
         print("======== pruning complete ========")

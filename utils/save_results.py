@@ -27,7 +27,7 @@ def save_results(args,ca,asr,ca_std,asr_std,def_ca,def_asr,def_ca_std,def_asr_st
     dataset = args.root_path.split('/')[-1]
     if len(dataset) < 2:
         dataset = args.root_path.split('/')[-2]
-    path_ = 'D_{}-M_{}-BM_{}-P_{}-TL_{}-{}'.format(dataset,args.model,args.bd_model,args.poisoning_ratio,args.target_label,sim_id)
+    path_ = '{}-{}-{}-{}-{}'.format(dataset,args.model,args.bd_model,args.train_mode,sim_id)
     path = 'Results'
     if not os.path.exists(path):
         os.mkdir(path)

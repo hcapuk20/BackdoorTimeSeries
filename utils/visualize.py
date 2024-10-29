@@ -53,9 +53,9 @@ def visualize(latents, poisoned_indices, silent_indices, args):
     dataset = args.root_path.split('/')[-1]
     if len(dataset) < 2:
         dataset = args.root_path.split('/')[-2]
-    silent = "silent" if args.silent_poisoning else "_"
+    silent = f"silent_a{args.lambda_alpha}b{args.lambda_beta}" if args.silent_poisoning else "_"
     os.makedirs('visuals', exist_ok=True)
-    save_path = f'visuals/latent_new_{dataset}_{args.bd_model}_{args.model}_{args.train_mode}_{args.sim_id}_{silent}.png'
+    save_path = f'visuals/latent_{dataset}_{args.bd_model}_{args.model}_{args.train_mode}_{silent}_ls-{args.label_smooth}_{args.sim_id}.png'
     plt.tight_layout()
     plt.savefig(save_path)
 
