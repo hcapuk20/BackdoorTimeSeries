@@ -1,23 +1,38 @@
 from epoch import *
 
-def epoch_marksman_lam_cross(bd_model, bd_model_prev, surr_model, loader, args, opt_trig=None, opt_class=None,train=True):
+
+def create_cross(inputs1, inputs2, bd_model):
+    patterns2, patterns2_clipped = bd_model(inputs2)
+    inputs_cross = inputs1 + (patterns2_clipped - inputs1)
+    return inputs_cross, patterns2_clipped
+
+
+def epoch_marksman_lam_cross(bd_model, bd_model_prev, surr_model, loader1, args, loader2=None, opt_trig=None, opt_class=None,train=True, mp_scaler=None):
     total_loss = []
     all_preds = []
     bd_preds = []
     trues = []
     bds = []
     bd_label = args.target_label
-    loss_dict = {'CE_c':[],'CE_bd':[],'reg':[]}
-    bd_model_prev.eval() ## ----> trigger gnerator for classifier is in evaluation mode
+    loss_dict = {'CE_c': [], 'CE_bd': [], 'reg': []}
+
+    criterion_div = nn.MSELoss(reduction="none")
+    # to make the zipped loop consistent with or without diversity loss
+    if loader2 is None:
+        loader2 = [[None, None, None]] * len(loader1)
+
+    bd_model_prev.eval()  ## ----> trigger gnerator for classifier is in evaluation mode
     if train:
         surr_model.train()
         bd_model.train()
     else:
         surr_model.eval()
         bd_model.eval()
-    for i, (batch_x, label, padding_mask) in enumerate(loader):
+    for i, (batch_x, label, padding_mask), (batch_x2, label2, padding_mask2) in zip(range(len(loader1)), loader1,
+                                                                                    loader2):
+        loss_div = 0.0  # for consistency with optional diversity loss
         bd_model.zero_grad()
-        surr_model.train() ### surrogate model in train mode 
+        surr_model.train()  ### surrogate model in train mode
         surr_model.zero_grad()
         #### Fetch clean data
         batch_x = batch_x.float().to(args.device)
@@ -25,47 +40,94 @@ def epoch_marksman_lam_cross(bd_model, bd_model_prev, surr_model, loader, args, 
         padding_mask = padding_mask.float().to(args.device)
         #### Fetch labels
         label = label.to(args.device)
+
+        if batch_x2 is not None:
+            batch_x2 = batch_x2.float().to(args.device)
+            padding_mask2 = padding_mask2.float().to(args.device)
+            label2 = label2.to(args.device)
         #### Generate backdoor labels ####### so far we focus on fixed target scenario
-        bd_labels = torch.ones_like(label).to(args.device) * bd_label ## comes from argument
+        if args.bd_type == 'all2all':
+            bd_labels = torch.randint(0, args.numb_class, (batch_x.shape[0],)).to(args.device)
+            assert args.bd_model == 'patchdyn'  ### only for patchdyn model
+        elif args.bd_type == 'all2one':
+            bd_labels = torch.ones_like(label).to(args.device) * bd_label  ## comes from argument
+        else:
+            raise ValueError('bd_type should be all2all or all2one')
         ########### First train surrogate classifier with frozen trigger #####################
-        trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None) # generate trigger with frozen model
-        clean_pred = surr_model(batch_x, padding_mask,None,None)
-        bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None)
-        loss_clean = args.criterion(clean_pred, label.long().squeeze(-1))
-        loss_bd = args.criterion(bd_pred, bd_labels.long().squeeze(-1))
-        loss_class = loss_clean + loss_bd
+        with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
+            trigger, trigger_clip = bd_model_prev(batch_x, padding_mask, None, None,
+                                                  bd_labels)  # generate trigger with frozen model
+            mask = (label != bd_label).float().to(args.device) if args.attack_only_nontarget else torch.ones_like(
+                label).float().to(args.device)
+            mask = mask.unsqueeze(-1).expand(-1, trigger_clip.shape[-2], trigger_clip.shape[-1])
+            batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip * mask, args.lambda_alpha,
+                                                   args.lambda_beta)  # generate mix_batch
+            clean_pred = surr_model(batch_x, padding_mask, None, None)
+            bd_pred = surr_model(batch_mix, padding_mask, None, None)
+            loss_bd = args.criterion_mix(bd_pred, bd_labels.long().squeeze(-1))  # output size of batch
+            loss_clean = args.criterion_mix(bd_pred, label.long().squeeze(-1))  # output size of batch
+            loss_class = torch.mean(loss_bd * scale_weights + loss_clean * (1 - scale_weights))
+            # loss_class = loss_clean + loss_bd
         total_loss.append(loss_class.item())
         all_preds.append(clean_pred)
         bd_preds.append(bd_pred)
         trues.append(label)
         bds.append(bd_labels)
-        loss_dict['CE_c'].append(loss_class.item())
-        loss_dict['CE_bd'].append(loss_bd.item())
+        loss_dict['CE_c'].append(loss_clean.mean().item())
+        loss_dict['CE_bd'].append(loss_bd.mean().item())
         if opt_class is not None:
-            loss_class.backward()
-            opt_class.step()
-         ###########  Train trigger classifier with updated surrogate classifier (eval mode) #####################
-        surr_model.eval() ### surrogate model in eval mode
-        trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None) # trigger with active model
-        bd_pred = surr_model(batch_x + trigger_clip, padding_mask,None,None) # surrogate classifier in eval mode
-        loss_bd = args.criterion_bd(bd_pred, bd_labels.long().squeeze(-1))
-        loss_reg = reg_loss(batch_x, trigger,trigger_clip,args)
-        loss_trig = loss_bd + loss_reg
-        total_loss.append(loss_trig.item() + loss_class.item())
-        all_preds.append(clean_pred)
-        bd_preds.append(bd_pred)
-        trues.append(label)
-        bds.append(bd_labels)
-        loss_dict['CE_c'].append(loss_class.item())
-        loss_dict['CE_bd'].append(loss_bd.item())
-        loss_dict['reg'].append(loss_reg.item())
+            if mp_scaler is not None:
+                mp_scaler.scale(loss_class).backward()
+                mp_scaler.step(opt_class)
+                mp_scaler.update()
+            else:
+                loss_class.backward()
+                opt_class.step()
+        ###########  Train trigger classifier with updated surrogate classifier (eval mode) #####################
+        surr_model.eval()  ### surrogate model in eval mode
+        with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
+            trigger, trigger_clip = bd_model(batch_x, padding_mask, None, None, bd_labels)  # trigger with active model
+        if batch_x2 is not None and args.div_reg:
+            with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
+                trigger2, trigger_clip2 = bd_model(batch_x2, padding_mask2, None, None)
+
+                ### DIVERGENCE LOSS CALCULATION
+                input_distances = criterion_div(batch_x, batch_x2)
+                input_distances = torch.mean(input_distances, dim=(1, 2))
+                input_distances = torch.sqrt(input_distances)
+
+                ### TODO: do we use trigger or trigger_clip here?
+                trigger_distances = criterion_div(trigger, trigger2)
+                trigger_distances = torch.mean(trigger_distances, dim=(1, 2))
+                trigger_distances = torch.sqrt(trigger_distances)
+
+                loss_div = input_distances / (
+                            trigger_distances + 1e-6)  # second value is the epsilon, arbitrary for now
+                loss_div = torch.mean(loss_div) * args.div_reg  # give weight from args
+        # batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip, alpha=2, beta=2) # generate mix_batch
+        with autocast_if_needed(device_type="cuda", enabled=mp_scaler is not None):
+            bd_pred = surr_model(batch_x + trigger_clip * mask, padding_mask, None,
+                                 None)  # surrogate classifier in eval mode
+            ######## here we combine two loss one for each label
+            loss_bd = nn.CrossEntropyLoss(label_smoothing=args.label_smooth)(bd_pred, bd_labels.long().squeeze(
+                -1))  # output size of batch
+            # loss_clean = args.criterion_mix(bd_pred, label.long().squeeze(-1)) # output size of batch
+            loss_reg = reg_loss(batch_x, trigger, trigger_clip, args)  ### We can use regularizer loss as well
+            # loss_trig = torch.mean(loss_bd * scale_weights + loss_clean * (1-scale_weights)) ## sum loss can be converted to average
+            loss_trig = loss_bd + loss_div
+            if loss_reg is not None:
+                loss_trig += loss_reg
+                loss_dict['reg'].append(loss_reg.item())
         if opt_trig is not None:
-            loss_trig.backward()
-            opt_trig.step()
+            if mp_scaler is not None:
+                mp_scaler.scale(loss_trig).backward()
+                mp_scaler.step(opt_trig)
+                mp_scaler.update()
+            else:
+                loss_trig.backward()
+                opt_trig.step()
         #### With a certain period we synchronize bd_model and bd_model_prev
-        if i % 5 ==0: #deep_copy model
-            pull_model(bd_model_prev,bd_model)#### here move bd_model to bd_model_prev
-            #### 5 will be a parameter and we may consider syncronisation even at the end of epoch
+    pull_model(bd_model_prev, bd_model)  #### here move bd_model to bd_model_prev
     total_loss = np.average(total_loss)
     all_preds = torch.cat(all_preds, 0)
     bd_preds = torch.cat(bd_preds, 0)
