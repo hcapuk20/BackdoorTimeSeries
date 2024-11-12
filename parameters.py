@@ -15,14 +15,15 @@ def args_parser():
     parser.add_argument('--model_sur', type=str, default='resnet2', help='surrogate model in the BD model')
     parser.add_argument('--bd_model', type=str, default='patchtst',
                         help='trigger generator model. patchtst or inverted')
-    parser.add_argument('--train_mode', type=str, default='marksman_lam',
+    parser.add_argument('--train_mode', type=str, default='marksman_cross',
                         help='basic: single loss single optimizer,'
                              '2opt: single loss two optimizers,'
                              'marksman: iterative training')
     parser.add_argument('--poisoning_ratio', type=float, default=0.1, help='Poisoning ratio')
-    parser.add_argument('--poisoning_ratio_train', type=float, default=1,
+    parser.add_argument('--poisoning_ratio_train', type=float, default=0.1,
                         help='Poisoning ratio of the batch in the trining phase')
     parser.add_argument('--clip_ratio', type=float, default=0.1, help='Poisoning ratio')
+    parser.add_argument('--p_cross', type=float, default=0.1, help='cross ratio')
     parser.add_argument('--bd_type', type=str, default='all2one', help='all2one or all2all')
     parser.add_argument('--trainable_token', type=bool, default=True, help='all2all trains token')
     parser.add_argument('--token_hook', type=float, default=1e-2, help='token hook for grad multiplier')

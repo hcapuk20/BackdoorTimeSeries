@@ -27,11 +27,11 @@ from models.ResNet2 import ResNet as ResNet2
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from epoch import *
+from epoch_cross import epoch_marksman_cross
 from utils.save_results import save_results
 from utils.plot import plot_time_series
 from utils.visualize import visualize
 from copy import deepcopy
-from epoch_cross import epoch_marksman_lam_cross
 
 model_dict = {
     'TimesNet': TimesNet,
@@ -190,6 +190,9 @@ def run(args,threaded=True):
             elif args.train_mode == 'marksman':
                 train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev ,surr_model, train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr, mp_scaler=scaler)               
                 test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev, surr_model, test_loader, args,train=False, mp_scaler=scaler)
+            elif args.train_mode == 'marksman_cross':
+                train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_cross(bd_model,bd_model_prev ,surr_model, train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr, mp_scaler=scaler)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_cross(bd_model,bd_model_prev, surr_model, test_loader, args,train=False, mp_scaler=scaler,loader2=train_loader2)
             elif args.train_mode == 'marksman_lam':
                 train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model,
                                                                                 train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr, mp_scaler=scaler)
