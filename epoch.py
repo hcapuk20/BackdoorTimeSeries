@@ -69,11 +69,30 @@ def fftreg(x_clean,x_back): # input shape B x T x C #outputshape B x C
 def l2_reg(clipped_trigger, trigger): # maximize clipped trigger.
     return -torch.norm(clipped_trigger)
 
+def moving_average(x,kernel_size=3):
+    x = x.permute(0,2,1)
+    num_var = x.shape[1]
+    mean_conv = nn.Conv1d(in_channels=num_var,
+                          out_channels=num_var,
+                          kernel_size=kernel_size,stride=1,padding=1).to(x.device)
+
+    # Set kernel to calculate mean
+    #kernel_weights = np.ones(kernel_size) / kernel_size
+    #print(mean_conv.weight.data.shape,x.shape)
+    mean_conv.weight.data = torch.full_like(mean_conv.weight.data, 1/kernel_size)
+    mean_conv.requires_grad_(False)
+    output = mean_conv(torch.autograd.Variable(x))
+    #print(output.shape,x.shape)
+    return output.permute(0,2,1)
+
+
 def reg_loss(x_clean,trigger,trigger_clip,args):
     l2_loss = l2_reg(trigger_clip,trigger)
     cos_loss = fftreg(x_clean,x_clean+trigger_clip)
     freq_loss = freqreg(x_clean,x_clean+trigger_clip)
-    reg_total = l2_loss * args.L2_reg + cos_loss * args.cos_reg + freq_loss * args.freq_reg
+    ma_loss = torch.norm(moving_average(trigger_clip)-trigger_clip) * 1
+    #print(ma_loss)
+    reg_total = l2_loss * args.L2_reg + cos_loss * args.cos_reg + freq_loss * args.freq_reg + ma_loss
     if reg_total != 0:
         return reg_total
     else:

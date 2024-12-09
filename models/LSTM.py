@@ -28,7 +28,12 @@ class LSTMClassifier(nn.Module):
         self.lstm = nn.LSTM(input_size=self.num_channels, hidden_size=self.hidden_size, num_layers=self.num_layers, batch_first=True)
         self.fc = nn.Linear(self.hidden_size, self.num_classes)
 
-    def forward(self, x,*args):
+    def forward(self, x, padding_mask=None, x_dec=None, x_mark_dec=None, visualize=None):
         out, _ = self.lstm(x)
+        if visualize is not None:
+            latent = out[:, -1, :]
         out = self.fc(out[:, -1, :])
-        return out
+        if visualize is not None:
+            return out, latent
+        else:
+            return out

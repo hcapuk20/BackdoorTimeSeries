@@ -152,7 +152,6 @@ def run(args,threaded=True):
     #args.criterion_bd = nn.CrossEntropyLoss(label_smoothing=args.label_smooth) #unsuded
     opt_surr = None
     ## GRAD SCALER FOR MIXED PRECISION
-    scaler = torch.cuda.amp.GradScaler(enabled=args.use_mp) if args.use_mp else None
 
     if args.load_bd_model is None:
         ### Experimental
@@ -182,22 +181,22 @@ def run(args,threaded=True):
         for i in tqdm(range(args.train_epochs)):
             ########### Here train the trigger while also update the surrogate classifier #########
             if args.train_mode == 'basic':
-                train_loss, train_dic, train_acc, bd_train_acc = epoch_with_diversity(bd_model, surr_model, train_loader, args, loader2=train_loader2, opt=opt_bd, opt2=None, mp_scaler=scaler)
-                test_loss, test_dic, test_acc, bd_test_acc = epoch_with_diversity(bd_model, surr_model, test_loader, args,train=False, mp_scaler=scaler)
+                train_loss, train_dic, train_acc, bd_train_acc = epoch_with_diversity(bd_model, surr_model, train_loader, args, loader2=train_loader2, opt=opt_bd, opt2=None)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_with_diversity(bd_model, surr_model, test_loader, args,train=False)
             elif args.train_mode == '2opt':
-                train_loss, train_dic, train_acc, bd_train_acc = epoch_with_diversity(bd_model, surr_model, train_loader, args, loader2=train_loader2, opt=opt_bd, opt2=opt_surr, mp_scaler=scaler)
-                test_loss, test_dic, test_acc, bd_test_acc = epoch_with_diversity(bd_model, surr_model, test_loader, args,train=False, mp_scaler=scaler)
+                train_loss, train_dic, train_acc, bd_train_acc = epoch_with_diversity(bd_model, surr_model, train_loader, args, loader2=train_loader2, opt=opt_bd, opt2=opt_surr)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_with_diversity(bd_model, surr_model, test_loader, args,train=False)
             elif args.train_mode == 'marksman':
-                train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev ,surr_model, train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr, mp_scaler=scaler)               
-                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev, surr_model, test_loader, args,train=False, mp_scaler=scaler)
+                train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev ,surr_model, train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_with_diversity(bd_model,bd_model_prev, surr_model, test_loader, args,train=False)
             elif args.train_mode == 'marksman_cross':
-                train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_cross(bd_model,bd_model_prev ,surr_model, train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr, mp_scaler=scaler)
-                test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_cross(bd_model,bd_model_prev, surr_model, test_loader, args,train=False, mp_scaler=scaler,loader2=train_loader2)
+                train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_cross(bd_model,bd_model_prev ,surr_model, train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr)
+                test_loss, test_dic, test_acc, bd_test_acc = epoch_with_diversity(bd_model, surr_model, test_loader, args,train=False)
             elif args.train_mode == 'marksman_lam':
                 train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model,
-                                                                                train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr, mp_scaler=scaler)
+                                                                                train_loader, args, loader2=train_loader2, opt_trig=opt_bd, opt_class=opt_surr)
                 test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model,
-                                                                            test_loader, args, train=False, mp_scaler=scaler)
+                                                                            test_loader, args, train=False)
             # elif args.train_mode == 'marksman_lam_cross':
             #     train_loss, train_dic, train_acc, bd_train_acc = epoch_marksman_lam_cross(bd_model, bd_model_prev, surr_model,
             #                                                                         train_loader, args, opt_bd,
@@ -259,7 +258,7 @@ def run(args,threaded=True):
     for i in tqdm(range(args.train_epochs_inj)):
         clean_model.train()
         bd_generator.to('cpu')
-        train_loss, train_accuracy, _ = epoch_clean_train2(clean_model,bd_train_loader,args,optimizer, mp_scaler=scaler)
+        train_loss, train_accuracy, _ = epoch_clean_train2(clean_model,bd_train_loader,args,optimizer)
         clean_model.eval()
         bd_generator.to(args.device)
         clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args)
@@ -269,7 +268,11 @@ def run(args,threaded=True):
     ## prepare validation data and defence test
     _,val_data = torch.utils.data.random_split(train_data, [.8, .2])
     val_loader = custom_data_loader(val_data, args, flag='train', force_bs=16)
-    clean_test_acc_def, bd_accuracy_test_def = defence_test_fp(bd_generator, clean_model,val_loader, test_loader, args)
+    bd_generator.to(args.device)
+    try:
+        clean_test_acc_def, bd_accuracy_test_def = defence_test_fp(bd_generator, clean_model,val_loader, test_loader, args)
+    except:
+        clean_test_acc_def, bd_accuracy_test_def = 0, 0
     # one final test epoch to save plots.
     clean_test_acc, bd_accuracy_test = epoch_clean_test(bd_generator, clean_model, test_loader, args, plot_time_series)
     # STRIP
