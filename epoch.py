@@ -69,28 +69,100 @@ def fftreg(x_clean,x_back): # input shape B x T x C #outputshape B x C
 def l2_reg(clipped_trigger, trigger): # maximize clipped trigger.
     return -torch.norm(clipped_trigger)
 
-def moving_average(x,kernel_size=3):
-    x = x.permute(0,2,1)
-    num_var = x.shape[1]
-    mean_conv = nn.Conv1d(in_channels=num_var,
-                          out_channels=num_var,
-                          kernel_size=kernel_size,stride=1,padding=1).to(x.device)
+def moving_average_conv(time_series, kernel_size=5):
+    """
+    Compute the moving average for a multivariate time series.
 
-    # Set kernel to calculate mean
-    #kernel_weights = np.ones(kernel_size) / kernel_size
-    #print(mean_conv.weight.data.shape,x.shape)
-    mean_conv.weight.data = torch.full_like(mean_conv.weight.data, 1/kernel_size)
-    mean_conv.requires_grad_(False)
-    output = mean_conv(torch.autograd.Variable(x))
-    #print(output.shape,x.shape)
-    return output.permute(0,2,1)
+    Parameters:
+    time_series (torch.Tensor): Input tensor of shape (batch_size, num_variables, sequence_length).
+    kernel_size (int): Size of the moving average window.
+
+    Returns:
+    torch.Tensor: Tensor with the moving average applied.
+    """
+
+    # Create a convolutional layer to compute the moving average
+    batch_size, num_variables, sequence_length = time_series.shape
+    print(time_series.shape)
+    conv = nn.Conv1d(in_channels=num_variables, out_channels=num_variables, kernel_size=kernel_size, stride=1,
+                     padding=kernel_size // 2, groups=num_variables, bias=False)
+
+    # Set the weights of the convolutional layer to compute the average
+    with torch.no_grad():
+        conv.weight.data = torch.ones_like(conv.weight.data) / kernel_size
+
+    # Apply the moving average filter
+    #time_series = time_series.permute(0, 2, 1)  # Change shape to (batch_size, sequence_length, num_variables)
+    smoothed_series = conv(time_series)
+    #smoothed_series = smoothed_series.permute(0, 2, 1)  # Change back to (batch_size, num_variables, sequence_length)
+
+    return smoothed_series
+
+
+def moving_average_pool(time_series, kernel_size=5):
+    """
+    Compute the moving average for a multivariate time series using pooling.
+
+    Parameters:
+    time_series (torch.Tensor): Input tensor of shape (batch_size, num_variables, sequence_length).
+    kernel_size (int): Size of the moving average window.
+
+    Returns:
+    torch.Tensor: Tensor with the moving average applied.
+    """
+    # Ensure the input is in the correct shape (batch_size, num_variables, sequence_length)
+    assert len(time_series.shape) == 3, "Input tensor must be 3-dimensional"
+
+    # Create a pooling layer to compute the moving average
+    pool = nn.AvgPool1d(kernel_size=kernel_size, stride=1, padding=kernel_size//2, count_include_pad=False)
+
+    # Apply the moving average filter
+    #time_series = time_series.permute(0, 2, 1)  # Change shape to (batch_size, sequence_length, num_variables)
+    smoothed_series = pool(time_series)
+    #smoothed_series = smoothed_series.permute(0, 2, 1)  # Change back to (batch_size, num_variables, sequence_length)
+
+    return smoothed_series
+
+class FrequencyDomainSimilarityLoss(nn.Module):
+    def __init__(self,minimize=True):
+        super(FrequencyDomainSimilarityLoss, self).__init__()
+        self.cosine_similarity = nn.CosineSimilarity(dim=-1, eps=1e-6)
+        self.minimize = minimize
+
+    def forward(self, time_series1, time_series2):
+        """
+        Compute the similarity between two time series in the frequency domain.
+
+        Parameters:
+        time_series1 (torch.Tensor): First input tensor of shape (batch_size, num_variables, sequence_length).
+        time_series2 (torch.Tensor): Second input tensor of shape (batch_size, num_variables, sequence_length).
+
+        Returns:
+        torch.Tensor: Similarity loss.
+        """
+        # Convert time series to frequency domain using FFT
+        freq_series1 = torch.fft.rfft(time_series1, dim=-1)
+        freq_series2 = torch.fft.rfft(time_series2, dim=-1)
+
+        # Compute the cosine similarity between the frequency domain representations
+        similarity = self.cosine_similarity(freq_series1, freq_series2)
+
+        # The loss is 1 - similarity to maximize similarity
+        if self.minimize:
+            loss = similarity.mean()
+        else:
+            loss = 1 - similarity.mean()
+
+        return loss
 
 
 def reg_loss(x_clean,trigger,trigger_clip,args):
     l2_loss = l2_reg(trigger_clip,trigger)
     cos_loss = fftreg(x_clean,x_clean+trigger_clip)
     freq_loss = freqreg(x_clean,x_clean+trigger_clip)
-    ma_loss = torch.norm(moving_average(trigger_clip)-trigger_clip) * 1
+    ma_clipped = moving_average_conv(x_clean+trigger_clip)
+    freq_loss_2 = FrequencyDomainSimilarityLoss()(x_clean,ma_clipped)
+    ma_loss = torch.norm(moving_average_pool(trigger_clip)-trigger_clip) * 1
     #print(ma_loss)
     reg_total = l2_loss * args.L2_reg + cos_loss * args.cos_reg + freq_loss * args.freq_reg + ma_loss
     if reg_total != 0:
