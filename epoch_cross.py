@@ -1,3 +1,5 @@
+import math
+
 from epoch import *
 
 
@@ -36,9 +38,8 @@ def epoch_marksman_cross(bd_model, bd_model_prev, surr_model, loader1, args, loa
         padding_mask = padding_mask.float().to(args.device)
         #### Fetch labels
         label = label.to(args.device)
-        num_bd = int(ratio * batch_x.shape[0])
-        num_cross = int(p_cross * batch_x.shape[0])
-
+        num_bd = math.ceil(ratio * batch_x.shape[0])
+        num_cross = math.ceil(p_cross * batch_x.shape[0])
         batch_x2 = batch_x2.float().to(args.device)
         padding_mask2 = padding_mask2.float().to(args.device)
         label2 = label2.to(args.device)
