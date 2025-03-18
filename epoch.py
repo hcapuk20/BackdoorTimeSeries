@@ -162,9 +162,9 @@ def reg_loss(x_clean,trigger,trigger_clip,args):
     freq_loss = freqreg(x_clean,x_clean+trigger_clip)
     ma_clipped = moving_average_conv(x_clean+trigger_clip)
     freq_loss_2 = FrequencyDomainSimilarityLoss()(x_clean,ma_clipped)
-    ma_loss = torch.norm(moving_average_pool(trigger_clip)-trigger_clip) * 1
+    ma_loss = torch.norm(moving_average_pool(trigger)) * 1
     #print(ma_loss)
-    reg_total = l2_loss * args.L2_reg + cos_loss * args.cos_reg + freq_loss * args.freq_reg + ma_loss
+    reg_total = freq_loss_2 - ma_loss
     if reg_total != 0:
         return reg_total
     else:
