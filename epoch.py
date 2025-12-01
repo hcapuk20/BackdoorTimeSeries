@@ -160,11 +160,11 @@ def reg_loss(x_clean,trigger,trigger_clip,args):
     l2_loss = l2_reg(trigger_clip,trigger)
     cos_loss = fftreg(x_clean,x_clean+trigger_clip)
     freq_loss = freqreg(x_clean,x_clean+trigger_clip)
-    ma_clipped = moving_average_conv(x_clean+trigger_clip)
-    freq_loss_2 = FrequencyDomainSimilarityLoss()(x_clean,ma_clipped)
-    ma_loss = torch.norm(moving_average_pool(trigger)) * 1
+    #ma_clipped = moving_average_conv(x_clean+trigger_clip)
+    #freq_loss_2 = FrequencyDomainSimilarityLoss()(x_clean,ma_clipped)
+    #ma_loss = torch.norm(moving_average_pool(trigger_clip)-trigger_clip) * 1
     #print(ma_loss)
-    reg_total = freq_loss_2 - ma_loss
+    reg_total = l2_loss * args.L2_reg + cos_loss * args.cos_reg + freq_loss * args.freq_reg
     if reg_total != 0:
         return reg_total
     else:
@@ -380,8 +380,9 @@ def epoch_marksman_with_diversity(bd_model, bd_model_prev, surr_model, loader1, 
         else:
             raise ValueError('bd_type should be all2all or all2one')
         ########### First train surrogate classifier with frozen trigger #####################
-        
-        trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None,bd_labels) # generate trigger with frozen model
+        with torch.no_grad():
+            trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None,bd_labels) # generate trigger with frozen model
+            trigger_clip = trigger_clip.detach()
         mask = (label != bd_label).float().to(args.device) if args.attack_only_nontarget else torch.ones_like(label).float().to(args.device)
         mask = mask.unsqueeze(-1).expand(-1,trigger_clip.shape[-2],trigger_clip.shape[-1])
         clean_pred = surr_model(batch_x, padding_mask,None,None)
@@ -394,21 +395,23 @@ def epoch_marksman_with_diversity(bd_model, bd_model_prev, surr_model, loader1, 
             opt_class.step()
         ###########  Train trigger classifier with updated surrogate classifier (eval mode) #####################
         surr_model.eval() ### surrogate model in eval mode
+        bd_model.zero_grad()  # Ensure clean gradients for trigger training
         
-        trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None) # trigger with active model
+        trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None,bd_labels) # trigger with active model
         if batch_x2 is not None and args.div_reg:
             
-            trigger2, trigger_clip2 = bd_model(batch_x2, padding_mask2, None, None)
+            bd_labels2 = torch.ones_like(label2).to(args.device) * bd_label  # bd_labels for second batch
+            trigger2, trigger_clip2 = bd_model(batch_x2, padding_mask2, None, None, bd_labels2)
 
             ### DIVERGENCE LOSS CALCULATION
             input_distances = criterion_div(batch_x, batch_x2)
             input_distances = torch.mean(input_distances, dim=(1, 2))
-            input_distances = torch.sqrt(input_distances)
+            input_distances = torch.sqrt(input_distances + 1e-8)  # Add epsilon inside sqrt for numerical stability
 
             ### TODO: do we use trigger or trigger_clip here?
             trigger_distances = criterion_div(trigger, trigger2)
             trigger_distances = torch.mean(trigger_distances, dim=(1, 2))
-            trigger_distances = torch.sqrt(trigger_distances)
+            trigger_distances = torch.sqrt(trigger_distances + 1e-8)  # Add epsilon inside sqrt for numerical stability
 
             loss_div = input_distances / (trigger_distances + 1e-6) # second value is the epsilon, arbitrary for now
             loss_div = torch.mean(loss_div) * args.div_reg # give weight from args
@@ -421,8 +424,8 @@ def epoch_marksman_with_diversity(bd_model, bd_model_prev, surr_model, loader1, 
             loss_reg = torch.zeros_like(loss_bd)
         loss_trig = loss_bd + loss_reg + loss_div
         total_loss.append(loss_trig.item() + loss_class.item())
-        all_preds.append(clean_pred)
-        bd_preds.append(bd_pred)
+        all_preds.append(clean_pred.detach())
+        bd_preds.append(bd_pred.detach())
         trues.append(label)
         bds.append(bd_labels)
         loss_dict['CE_c'].append(loss_class.item())
@@ -495,8 +498,9 @@ def epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model, loade
         else:
             raise ValueError('bd_type should be all2all or all2one')
         ########### First train surrogate classifier with frozen trigger #####################
-        
-        trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None,bd_labels) # generate trigger with frozen model
+        with torch.no_grad():
+            trigger, trigger_clip = bd_model_prev(batch_x, padding_mask,None,None,bd_labels) # generate trigger with frozen model
+            trigger_clip = trigger_clip.detach()
         mask = (label != bd_label).float().to(args.device) if args.attack_only_nontarget else torch.ones_like(label).float().to(args.device)
         mask = mask.unsqueeze(-1).expand(-1,trigger_clip.shape[-2],trigger_clip.shape[-1])
         batch_mix, scale_weights = mixup_class(batch_x, batch_x + trigger_clip * mask, args.lambda_alpha, args.lambda_beta) # generate mix_batch
@@ -507,32 +511,35 @@ def epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model, loade
         loss_class = torch.mean(loss_bd * scale_weights + loss_clean * (1-scale_weights))
         #loss_class = loss_clean + loss_bd
         total_loss.append(loss_class.item())
-        all_preds.append(clean_pred)
-        bd_preds.append(bd_pred)
+        all_preds.append(clean_pred.detach())
+        bd_preds.append(bd_pred.detach())
         trues.append(label)
         bds.append(bd_labels)
         loss_dict['CE_c'].append(loss_clean.mean().item())
         loss_dict['CE_bd'].append(loss_bd.mean().item())
         if opt_class is not None:
+            opt_class.zero_grad()
             loss_class.backward()
             opt_class.step()
         ###########  Train trigger classifier with updated surrogate classifier (eval mode) #####################
         surr_model.eval() ### surrogate model in eval mode
-            
+        bd_model.zero_grad()  # Ensure clean gradients for trigger training
+
         trigger, trigger_clip = bd_model(batch_x, padding_mask,None,None,bd_labels) # trigger with active model
         if batch_x2 is not None and args.div_reg:
             
-            trigger2, trigger_clip2 = bd_model(batch_x2, padding_mask2, None, None)
+            bd_labels2 = torch.ones_like(label2).to(args.device) * bd_label  # bd_labels for second batch
+            trigger2, trigger_clip2 = bd_model(batch_x2, padding_mask2, None, None, bd_labels2)
 
             ### DIVERGENCE LOSS CALCULATION
             input_distances = criterion_div(batch_x, batch_x2)
             input_distances = torch.mean(input_distances, dim=(1, 2))
-            input_distances = torch.sqrt(input_distances)
+            input_distances = torch.sqrt(input_distances + 1e-8)  # Add epsilon inside sqrt for numerical stability
 
             ### TODO: do we use trigger or trigger_clip here?
             trigger_distances = criterion_div(trigger, trigger2)
             trigger_distances = torch.mean(trigger_distances, dim=(1, 2))
-            trigger_distances = torch.sqrt(trigger_distances)
+            trigger_distances = torch.sqrt(trigger_distances + 1e-8)  # Add epsilon inside sqrt for numerical stability
 
             loss_div = input_distances / (trigger_distances + 1e-6) # second value is the epsilon, arbitrary for now
             loss_div = torch.mean(loss_div) * args.div_reg # give weight from args
@@ -549,6 +556,7 @@ def epoch_marksman_lam_with_diversity(bd_model, bd_model_prev, surr_model, loade
             loss_trig += loss_reg
             loss_dict['reg'].append(loss_reg.item())
         if opt_trig is not None:
+            opt_trig.zero_grad()
             loss_trig.backward()
             opt_trig.step()
         #### With a certain period we synchronize bd_model and bd_model_prev

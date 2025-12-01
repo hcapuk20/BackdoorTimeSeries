@@ -14,7 +14,7 @@ import random
 
 
 def main_thread(args):
-    num_trial = 1
+    num_trial = 2
     CA = []
     ASR = []
     CA_def = []

@@ -97,6 +97,9 @@ def get_bd_model(args, train_data, test_data):
         generative_model = Bd_patch(args).float().to(args.device)
     elif args.bd_model == 'patchdyn':
         generative_model = Bd_patch_dyn(args).float().to(args.device)
+    elif args.bd_model == 'cnn':
+        from models.bd_cnn import bd_CNN
+        generative_model = bd_CNN(args).float().to(args.device)
     else:
         raise NotImplementedError
     ################## Combined Model ===> backdoor trigger network + surrogate classifier network ###################
@@ -204,7 +207,7 @@ def run(args,threaded=True):
             #     test_loss, test_dic, test_acc, bd_test_acc = epoch_marksman_lam_cross(bd_model, bd_model_prev, surr_model,
             #                                                                     test_loader, args, train=False)
                 ############################################
-            schedular_bd.step()
+            #schedular_bd.step()
             print('Train Loss', train_loss, 'Train acc', train_acc, 'Test Loss', test_loss, 'Test acc', test_acc)
             print('Backdoor Train', bd_train_acc, 'Backdoor Test', bd_test_acc)
             ce_c_train, ce_c_test = np.average(train_dic['CE_c']), np.average(test_dic['CE_c'])

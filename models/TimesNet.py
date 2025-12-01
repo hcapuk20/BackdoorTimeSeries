@@ -55,7 +55,7 @@ class TimesBlock(nn.Module):
         # period_list([topk]) -> topk significant frequency
         # period_weight([B, topk]) -> their amplitudes 
         period_list, period_weight = FFT_for_Period(x, self.k)
-
+        self.period_list = period_list
 
         res = []
         for i in range(self.k): # for each top_k frequency
@@ -90,6 +90,7 @@ class TimesBlock(nn.Module):
         # First, use softmax to get the normalized weight from amplitudes --> 2D [B,top_k]
         period_weight = F.softmax(period_weight, dim=1)
         # after two unsqueeze(1),shape -> [B,1,1,top_k],so repeat the weight to fit the shape of res
+        self.period_weight = period_weight.clone().detach().cpu()
         period_weight = period_weight.unsqueeze(
             1).unsqueeze(1).repeat(1, T, N, 1)
         # add by weight the top_k periods' result, getting the result of this TimesBlock
@@ -261,3 +262,6 @@ class Model(nn.Module):
             dec_out = self.classification(x_enc, x_mark_enc)
             return dec_out  # [B, N]
         return None
+
+    def get_topk_period_weights(self):
+        return self.model[0].period_list ,self.model[0].period_weight

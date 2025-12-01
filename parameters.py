@@ -11,11 +11,11 @@ def args_parser():
     parser.add_argument('--use_gpu', type=bool, default=True, help='bypassed gpus')
 
     # parser.add_argument('--data', type=str, default='ETTm1', help='dataset type')
-    parser.add_argument('--model', type=str, default='resnet2', help='NN model')
+    parser.add_argument('--model', type=str, default='timesnet', help='NN model')
     parser.add_argument('--model_sur', type=str, default='resnet2', help='surrogate model in the BD model')
-    parser.add_argument('--bd_model', type=str, default='patchtst',
+    parser.add_argument('--bd_model', type=str, default='cnn',
                         help='trigger generator model. patchtst or inverted')
-    parser.add_argument('--train_mode', type=str, default='marksman_cross',
+    parser.add_argument('--train_mode', type=str, default='marksman',
                         help='basic: single loss single optimizer,'
                              '2opt: single loss two optimizers,'
                              'marksman: iterative training')
@@ -41,7 +41,7 @@ def args_parser():
     parser.add_argument('--task_name', type=str, default='classification', help='Task to be performed.')
 
     ############ Training Parameters
-    parser.add_argument('--train_epochs', type=int, default=200, help='number of training epochs for trigger generator')
+    parser.add_argument('--train_epochs', type=int, default=100, help='number of training epochs for trigger generator')
     parser.add_argument('--train_epochs_inj', type=int, default=200,
                         help='number of training epochs for backdoor injection')
     parser.add_argument('--batch_size', type=int, default=40, help='batch size of train input data')
@@ -62,7 +62,7 @@ def args_parser():
 
     # data loader
     parser.add_argument('--data', type=str, required=False, default='UEA', help='dataset type')
-    parser.add_argument('--root_path', type=str, default='./dataset/UwaveGestureLibrary/', help='root path of the data file')
+    parser.add_argument('--root_path', type=str, default='./dataset/UWaveGestureLibrary/', help='root path of the data file')
     parser.add_argument('--data_path', type=str, default='ETTm1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
                         help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')

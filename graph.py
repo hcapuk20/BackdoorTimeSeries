@@ -96,10 +96,12 @@ def load_results(file, select,pick=None, save_csv=True,latex=False):
             panda.to_csv('results_bd.csv')
         else:
             panda.to_csv('results_bd.csv')
+        panda.to_excel('results_bd.xlsx')
     return dic
 
 
-select = ['model','model_sur','bd_model','target_label','L2_reg','cos_reg','root_path','CA','CA STD','ASR','ASR STD']
+select = ['model','train_mode','bd_model','L2_reg','cos_reg','div_reg','ptst_patch_len','ptst_stride','lambda_alpha','L2_reg','cos_reg','label_smooth','root_path','CA','CA STD','ASR','ASR STD']
+#select = ['model','bd_model','clip_ratio','L2_reg','cos_reg','div_reg','L2_reg','freq_reg','d_model_bd','e_layers_bd','root_path','CA','CA STD','ASR','ASR STD']
 
-loc = 'Results/Results1'
+loc = 'Results/scp2-30'
 load_results(loc,select,save_csv=True,latex=False)

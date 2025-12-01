@@ -40,3 +40,46 @@ def plot_time_series(args,data, bd):
     m = args.bd_model
     plt.savefig('trigger_figs/trigger_plot_{}-T_{}-{}-{}.png'.format(dataset,m,desig,random.randint(0,100)))
     #plt.show()
+
+
+def visualize_cls(dataloader,t_model,args,max_variates=3):
+    labels = []
+    samples = []
+    bd_samples = []
+    for i, (batch_x, label, padding_mask) in enumerate(dataloader):
+
+        M, T = batch_x[0].shape
+        batch_x = batch_x.to(args.device)
+        padding_mask = padding_mask.to(args.device)
+        label = label.to(args.device)
+        target_labels = torch.ones_like(label) * args.target_label
+        trigger_x, trigger_clipped = t_model(batch_x, padding_mask, None, None, target_labels)
+        bd_batch = batch_x + trigger_clipped
+        for i,l in enumerate(label):
+            if l not in labels:
+                samples.append(batch_x[i].permute(1,0))
+                bd_samples.append(bd_batch[i].permute(1,0))
+                labels.append(l)
+
+    for x,x_bd,l in zip(samples,bd_samples,labels):
+        fig, axs = plt.subplots(1, 3, squeeze=False)
+
+        # Flatten the axs array for easy iteration
+        try:
+            axs = axs.flatten()
+        except:
+            axs = axs
+        for i in range(min(max_variates, M)):  # if allowed square is bigger than the number of variates, stop early.
+            if isinstance(x, torch.Tensor):
+                x = x.detach().cpu().numpy()
+                x_bd = x_bd.detach().cpu().numpy()
+            axs[i].plot(x[i], label='Original')
+            axs[i].plot(x_bd[i], label='Backdoor')
+        plt.title('Label: {}'.format(l.item()))
+        plt.legend()
+        plt.tight_layout()
+        fig.set_size_inches(14, 4)
+        desig = args.sim_id
+        dataset = args.root_path.split('/')[-2]
+        m = args.bd_model
+        plt.savefig('trigger_figs2/trigger_plot_{}-L_{}-T_{}-{}-{}.png'.format(dataset,l.item(), m, desig, random.randint(0, 100)))
