@@ -48,6 +48,16 @@ model_dict = {
     'resnet2': ResNet2
 }
 
+# Notes: bu farklı eepoch methodlar için if else yerine dictionary kullanalım. 
+
+
+
+
+
+
+
+
+
 ######################################################### This is the V0 (initial prototype) code for time series backdoor ############################################
 
 ### We use additive trigger generation (trigger is added to clean data and also clipped for impercemptibility)
@@ -333,3 +343,4 @@ if __name__ == '__main__':
     save_results(args, np.mean(CA), np.mean(ASR),np.std(CA),np.std(ASR),np.mean(CA_def),np.mean(ASR_def),
                     np.std(CA_def), np.std(ASR_def), split_hidden_count, split_caught_count, split_fp_count,
                                                      spectre_hidden_count, spectre_caught_count, spectre_fp_count,best_bd_model,CA_epoch,ASR_epoch)
+
